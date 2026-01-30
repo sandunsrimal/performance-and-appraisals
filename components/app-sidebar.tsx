@@ -12,8 +12,9 @@ import {
   IconChevronDown,
   IconChartBar,
   IconFileText,
-  IconTarget,
   IconReportAnalytics,
+  IconChecklist,
+  IconSettings,
 } from "@tabler/icons-react"
 
 import { NavUser } from "@/components/nav-user"
@@ -29,6 +30,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar"
+import { useRole, type UserRole } from "@/lib/role-context"
 
 const user = {
   name: "Sandun Srimal",
@@ -36,65 +38,97 @@ const user = {
   avatar: "/avatars/shadcn.jpg",
 }
 
-const performanceAppraisalSubItems = [
+// All available menu items
+const allMenuItems = [
   {
     title: "Overview",
     icon: IconDashboard,
     url: "/overview",
+    roles: ["admin", "manager"] as UserRole[],
   },
   {
     title: "Employees",
     icon: IconUsers,
     url: "/employees",
+    roles: ["admin"] as UserRole[],
   },
   {
     title: "Appraisals",
     icon: IconFileText,
     url: "/appraisals",
+    roles: ["admin", "employee", "manager"] as UserRole[],
   },
   {
     title: "Templates",
     icon: IconTemplate,
     url: "/templates",
+    roles: ["admin"] as UserRole[],
   },
   {
     title: "Procedures",
     icon: IconRoute,
     url: "/procedures",
+    roles: ["admin"] as UserRole[],
   },
   {
-    title: "Goals",
-    icon: IconTarget,
-    url: "/goals",
+    title: "My Tasks",
+    icon: IconChecklist,
+    url: "/procedures/tasks",
+    roles: ["admin", "employee", "manager"] as UserRole[],
+  },
+  {
+    title: "Task Management",
+    icon: IconSettings,
+    url: "/procedures/task-management",
+    roles: ["admin", "manager"] as UserRole[],
   },
   {
     title: "Reports",
     icon: IconReportAnalytics,
     url: "/reports",
+    roles: ["admin", "manager"] as UserRole[],
   },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
+  const { currentRole } = useRole()
   const subMenuRef = React.useRef<HTMLUListElement>(null)
   const [subMenuHeight, setSubMenuHeight] = React.useState<number>(0)
+  const [isMounted, setIsMounted] = React.useState(false)
+  
+  // Prevent hydration mismatch by only filtering after mount
+  React.useEffect(() => {
+    setIsMounted(true)
+  }, [])
+  
+  // Filter menu items based on current role (only after mount to prevent hydration mismatch)
+  const performanceAppraisalSubItems = React.useMemo(() => {
+    if (!isMounted) {
+      // During SSR, show all items to match initial client render
+      return allMenuItems
+    }
+    return allMenuItems.filter((item) => item.roles.includes(currentRole))
+  }, [currentRole, isMounted])
   
   // Check if any sub-item is active (including root path)
-  const isPerformanceAppraisalActive = performanceAppraisalSubItems.some(
-    (item) => pathname === item.url || (pathname === "/" && item.url === "/overview")
-  )
+  const isPerformanceAppraisalActive = React.useMemo(() => {
+    return performanceAppraisalSubItems.some(
+      (item) => pathname === item.url || (pathname === "/" && item.url === "/overview")
+    )
+  }, [performanceAppraisalSubItems, pathname])
   
   // Auto-expand if one of the sub-items is active
   const [isPerformanceAppraisalOpen, setIsPerformanceAppraisalOpen] = React.useState(
-    isPerformanceAppraisalActive
+    false
   )
 
-  // Update open state when pathname changes
+  // Update open state when pathname changes or after mount
   React.useEffect(() => {
-    if (isPerformanceAppraisalActive) {
+    if (isMounted && isPerformanceAppraisalActive) {
       setIsPerformanceAppraisalOpen(true)
     }
-  }, [isPerformanceAppraisalActive])
+  }, [isPerformanceAppraisalActive, isMounted])
 
   // Measure sub-menu height for animation
   React.useEffect(() => {
@@ -105,7 +139,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         setSubMenuHeight(0)
       }
     }
-  }, [isPerformanceAppraisalOpen])
+  }, [isPerformanceAppraisalOpen, performanceAppraisalSubItems])
 
   // Recalculate height when window resizes
   React.useEffect(() => {

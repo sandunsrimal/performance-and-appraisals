@@ -1,10 +1,11 @@
 // Notification system for workflows and appraisals
-import { addDays, format, differenceInDays } from "date-fns"
+import { addDays, addWeeks, addMonths, format, differenceInDays } from "date-fns"
 import type {
   WorkflowAssignment,
   WorkflowTemplate,
   WorkflowMeeting,
   NotificationSettings,
+  WorkflowStep,
 } from "./types"
 import { getWorkflowTemplate, getEmployee } from "./workflow-data"
 
@@ -23,6 +24,43 @@ export type Notification = {
   sentDate?: string
   channels: ("email" | "in-app" | "sms")[]
   createdAt: string
+}
+
+// Calculate step due date based on dueDateType and dueDateOffset
+function calculateStepDueDate(step: WorkflowStep, startDate: Date, endDate?: Date): Date | null {
+  if (!step.dueDateType) return null
+
+  switch (step.dueDateType) {
+    case "on_interval":
+      return startDate
+    case "before_interval":
+      if (step.dueDateOffset !== undefined) {
+        return addWeeks(startDate, -step.dueDateOffset)
+      }
+      return startDate
+    case "after_interval":
+      if (step.dueDateOffset !== undefined) {
+        return addWeeks(startDate, step.dueDateOffset)
+      }
+      return endDate || startDate
+    case "custom":
+      if (step.dueDateOffset !== undefined && step.dueDateUnit) {
+        const offset = step.dueDateOffset
+        switch (step.dueDateUnit) {
+          case "days":
+            return addDays(startDate, offset)
+          case "weeks":
+            return addWeeks(startDate, offset)
+          case "months":
+            return addMonths(startDate, offset)
+          default:
+            return startDate
+        }
+      }
+      return startDate
+    default:
+      return startDate
+  }
 }
 
 // Calculate next meeting date based on frequency
@@ -79,8 +117,8 @@ export function generateNotificationsForAssignment(
 
   // Generate notifications for each step
   template.steps.forEach((step) => {
-    if (step.dueDays) {
-      const dueDate = addDays(startDate, step.dueDays)
+    const dueDate = calculateStepDueDate(step, startDate, assignment.endDate ? new Date(assignment.endDate) : undefined)
+    if (dueDate) {
       const reminderDate = addDays(dueDate, -settings.formReminderDays)
 
       // Form reminder notification

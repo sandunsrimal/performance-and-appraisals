@@ -40,8 +40,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { IconCalendar, IconCheck, IconClock, IconFileText, IconUsers, IconEye, IconDownload, IconStarFilled } from "@tabler/icons-react"
-import { type Appraisal, type WorkflowAssignment, type Employee, type EvaluationForm } from "@/lib/types"
+import { demoEmployees } from "@/lib/data/demo-employees"
+import { type Appraisal, type WorkflowAssignment, type EvaluationForm } from "@/lib/types"
 import { workflowAssignments, getWorkflowTemplate, getEmployee, initializeWorkflowData, getEvaluationForm } from "@/lib/workflow-data"
+import { useRole } from "@/lib/role-context"
 import {
   Sheet,
   SheetContent,
@@ -234,6 +236,7 @@ const downloadFormResponse = (
 }
 
 export default function AppraisalsPage() {
+  const { currentUserId, currentRole } = useRole()
   const [assignments, setAssignments] = React.useState<WorkflowAssignment[]>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -257,164 +260,49 @@ export default function AppraisalsPage() {
   // Initialize workflow data with employees
   React.useEffect(() => {
     setIsMounted(true)
-    // Create demo employees based on assigned procedures
-    const demoEmployees: Employee[] = [
-      {
-        id: "1",
-        firstName: "John",
-        lastName: "Doe",
-        email: "john.doe@company.com",
-        phone: "(555) 123-4567",
-        department: "Engineering",
-        position: "Senior Software Engineer",
-        status: "Active",
-        hireDate: "2020-01-15",
-        address: "123 Main St",
-        city: "San Francisco",
-        state: "CA",
-        zipCode: "94102",
-        emergencyContact: "Jane Doe",
-        emergencyPhone: "(555) 123-4568",
-        assignedWorkflowIds: ["workflow-1", "workflow-5"],
-      },
-      {
-        id: "2",
-        firstName: "Jane",
-        lastName: "Smith",
-        email: "jane.smith@company.com",
-        phone: "(555) 234-5678",
-        department: "Marketing",
-        position: "Marketing Manager",
-        status: "Active",
-        hireDate: "2019-03-20",
-        address: "456 Oak Ave",
-        city: "Los Angeles",
-        state: "CA",
-        zipCode: "90001",
-        emergencyContact: "Bob Smith",
-        emergencyPhone: "(555) 234-5679",
-        assignedWorkflowIds: ["workflow-2", "workflow-5"],
-      },
-      {
-        id: "3",
-        firstName: "Michael",
-        lastName: "Johnson",
-        email: "michael.johnson@company.com",
-        phone: "(555) 345-6789",
-        department: "Sales",
-        position: "Sales Representative",
-        status: "Active",
-        hireDate: "2021-06-10",
-        address: "789 Pine Rd",
-        city: "New York",
-        state: "NY",
-        zipCode: "10001",
-        emergencyContact: "Sarah Johnson",
-        emergencyPhone: "(555) 345-6790",
-        assignedWorkflowIds: ["workflow-3", "workflow-5"],
-      },
-      {
-        id: "4",
-        firstName: "Emily",
-        lastName: "Davis",
-        email: "emily.davis@company.com",
-        phone: "(555) 456-7890",
-        department: "HR",
-        position: "HR Specialist",
-        status: "Inactive",
-        hireDate: "2020-09-05",
-        address: "321 Elm St",
-        city: "Chicago",
-        state: "IL",
-        zipCode: "60601",
-        emergencyContact: "Tom Davis",
-        emergencyPhone: "(555) 456-7891",
-        assignedWorkflowIds: ["workflow-5"],
-      },
-      {
-        id: "5",
-        firstName: "David",
-        lastName: "Wilson",
-        email: "david.wilson@company.com",
-        phone: "(555) 567-8901",
-        department: "Engineering",
-        position: "Software Engineer",
-        status: "Active",
-        hireDate: "2022-02-14",
-        address: "654 Maple Dr",
-        city: "Seattle",
-        state: "WA",
-        zipCode: "98101",
-        emergencyContact: "Lisa Wilson",
-        emergencyPhone: "(555) 567-8902",
-        assignedWorkflowIds: ["workflow-1", "workflow-5"],
-      },
-      {
-        id: "6",
-        firstName: "Sarah",
-        lastName: "Brown",
-        email: "sarah.brown@company.com",
-        phone: "(555) 678-9012",
-        department: "Finance",
-        position: "Financial Analyst",
-        status: "Active",
-        hireDate: "2021-11-08",
-        address: "987 Cedar Ln",
-        city: "Boston",
-        state: "MA",
-        zipCode: "02101",
-        emergencyContact: "Mark Brown",
-        emergencyPhone: "(555) 678-9013",
-        assignedWorkflowIds: ["workflow-5"],
-      },
-      {
-        id: "7",
-        firstName: "Robert",
-        lastName: "Taylor",
-        email: "robert.taylor@company.com",
-        phone: "(555) 789-0123",
-        department: "Operations",
-        position: "Operations Manager",
-        status: "Inactive",
-        hireDate: "2018-07-22",
-        address: "147 Birch Way",
-        city: "Austin",
-        state: "TX",
-        zipCode: "73301",
-        emergencyContact: "Mary Taylor",
-        emergencyPhone: "(555) 789-0124",
-        assignedWorkflowIds: ["workflow-2", "workflow-5"],
-      },
-      {
-        id: "8",
-        firstName: "Jessica",
-        lastName: "Anderson",
-        email: "jessica.anderson@company.com",
-        phone: "(555) 890-1234",
-        department: "Design",
-        position: "UX Designer",
-        status: "Active",
-        hireDate: "2021-04-12",
-        address: "258 Spruce St",
-        city: "Portland",
-        state: "OR",
-        zipCode: "97201",
-        emergencyContact: "Chris Anderson",
-        emergencyPhone: "(555) 890-1235",
-        assignedWorkflowIds: ["workflow-5"],
-      },
-    ]
-    
     initializeWorkflowData(demoEmployees)
     setAssignments(workflowAssignments)
   }, [])
 
+  // Get employees managed by current user (for managers)
+  const managedEmployeeIds = React.useMemo(() => {
+    if (currentRole === "admin") {
+      // Admin sees all
+      return null
+    }
+    if (currentRole === "employee") {
+      // Employee sees only their own
+      return [currentUserId]
+    }
+    // Manager sees their own + employees they manage
+    const managerEmployee = getEmployee(currentUserId)
+    if (!managerEmployee) return [currentUserId]
+    
+    const managedIds = [currentUserId] // Include their own
+    // Find employees who have this manager
+    demoEmployees.forEach((emp) => {
+      if (emp.managers?.some((m) => m.employeeId === currentUserId)) {
+        managedIds.push(emp.id)
+      }
+    })
+    return managedIds
+  }, [currentUserId, currentRole])
+
   // Convert workflow assignments to appraisals
   const appraisals = React.useMemo(() => {
-    return assignments
+    let filteredAssignments = assignments
+    
+    // Filter by user role
+    if (managedEmployeeIds !== null) {
+      filteredAssignments = assignments.filter((assignment) =>
+        managedEmployeeIds.includes(assignment.employeeId)
+      )
+    }
+    
+    return filteredAssignments
       .map(convertAssignmentToAppraisal)
       .filter((a): a is Appraisal => a !== null)
-  }, [assignments])
+  }, [assignments, managedEmployeeIds])
 
   // Get unique employees from workflow assignments for filtering
   const uniqueEmployees = React.useMemo(() => {
