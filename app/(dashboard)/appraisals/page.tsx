@@ -78,6 +78,12 @@ const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal
   const completedStages = Object.keys(assignment.stageCompletions).filter(
     (stageId) => assignment.stageCompletions[stageId].completed
   ).length
+  
+  // Check if all stages are completed
+  // Get all stages that should be in stageCompletions (filtered stages for this employee)
+  const allStagesInCompletions = Object.keys(assignment.stageCompletions)
+  const allStagesCompleted = allStagesInCompletions.length > 0 && 
+    allStagesInCompletions.every((stageId) => assignment.stageCompletions[stageId].completed)
 
   // Determine review type from interval
   const reviewTypeMap: Record<string, Appraisal["reviewType"]> = {
@@ -130,6 +136,12 @@ const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal
     overallRating = ratings.reduce((sum, r) => sum + r, 0) / ratings.length
   }
 
+  // Determine final status: if all stages are completed, mark as Completed
+  let finalStatus: Appraisal["status"] = statusMap[assignment.status]
+  if (allStagesCompleted && assignment.status !== "cancelled") {
+    finalStatus = "Completed"
+  }
+
   return {
     id: assignment.id,
     workflowAssignmentId: assignment.id,
@@ -140,16 +152,20 @@ const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal
     position: employee.position,
     reviewPeriod,
     reviewType: reviewTypeMap[interval.type] || "Custom",
-    status: statusMap[assignment.status],
+    status: finalStatus,
     overallRating,
     reviewers: [...new Set(reviewers)], // Remove duplicates
     startDate: assignment.startDate,
     dueDate: assignment.endDate || assignment.startDate,
-    completedDate: assignment.status === "completed" ? assignment.endDate || assignment.updatedAt : null,
+    completedDate: allStagesCompleted ? (assignment.endDate || assignment.updatedAt) : (assignment.status === "completed" ? assignment.endDate || assignment.updatedAt : null),
     goals: [],
     achievements: [],
     areasForImprovement: [],
-    comments: currentStage ? `Current stage: ${currentStage.name} (${completedStages}/${template.stages.length} completed)` : "",
+    comments: allStagesCompleted 
+      ? `All stages completed (${completedStages}/${allStagesInCompletions.length})`
+      : currentStage 
+        ? `Current stage: ${currentStage.name} (${completedStages}/${allStagesInCompletions.length} completed)` 
+        : `No active stage (${completedStages}/${allStagesInCompletions.length} completed)`,
     createdAt: assignment.createdAt,
     updatedAt: assignment.updatedAt,
   }
