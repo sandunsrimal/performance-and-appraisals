@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from "@tabler/icons-react"
 import {
   flexRender,
@@ -39,7 +41,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { IconCalendar, IconCheck, IconClock, IconFileText, IconUsers, IconEye, IconDownload, IconStarFilled } from "@tabler/icons-react"
+import { IconCalendar, IconCheck, IconClock, IconFileText, IconUsers, IconEye, IconDownload, IconStarFilled, IconBell } from "@tabler/icons-react"
 import { demoEmployees } from "@/lib/data/demo-employees"
 import { type Appraisal, type WorkflowAssignment, type EvaluationForm } from "@/lib/types"
 import { workflowAssignments, getWorkflowTemplate, getEmployee, initializeWorkflowData, getEvaluationForm } from "@/lib/workflow-data"
@@ -54,6 +56,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { toast } from "sonner"
 
 // Helper function to convert WorkflowAssignment to Appraisal
 const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal | null => {
@@ -70,10 +73,10 @@ const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal
     cancelled: "Cancelled",
   }
 
-  // Get current step info
-  const currentStep = template.steps.find((s) => s.id === assignment.currentStepId)
-  const completedSteps = Object.keys(assignment.stepCompletions).filter(
-    (stepId) => assignment.stepCompletions[stepId].completed
+  // Get current stage info
+  const currentStage = template.stages.find((s) => s.id === assignment.currentStageId)
+  const completedStages = Object.keys(assignment.stageCompletions).filter(
+    (stageId) => assignment.stageCompletions[stageId].completed
   ).length
 
   // Determine review type from interval
@@ -93,11 +96,11 @@ const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal
   const interval = template.interval
   const reviewPeriod = `${format(startDate, "MMM yyyy")} - ${assignment.endDate ? format(new Date(assignment.endDate), "MMM yyyy") : "Ongoing"}`
 
-  // Get reviewers (managers) from employee or template steps
+  // Get reviewers (managers) from employee or template stages
   const reviewers: string[] = []
-  template.steps.forEach((step) => {
-    if (step.managerLevel) {
-      const manager = employee.managers?.find((m) => m.level === step.managerLevel)
+  template.stages.forEach((stage) => {
+    if (stage.managerLevel) {
+      const manager = employee.managers?.find((m) => m.level === stage.managerLevel)
       if (manager) {
         if (manager.isExternal && manager.externalName) {
           reviewers.push(manager.externalName)
@@ -111,10 +114,10 @@ const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal
     }
   })
 
-  // Calculate overall rating from completed step form data
+  // Calculate overall rating from completed stage form data
   let overallRating: number | null = null
   const ratings: number[] = []
-  Object.values(assignment.stepCompletions).forEach((completion) => {
+  Object.values(assignment.stageCompletions).forEach((completion) => {
     if (completion.formData) {
       Object.values(completion.formData).forEach((value) => {
         if (typeof value === "number" && value >= 1 && value <= 5) {
@@ -146,7 +149,7 @@ const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal
     goals: [],
     achievements: [],
     areasForImprovement: [],
-    comments: currentStep ? `Current step: ${currentStep.name} (${completedSteps}/${template.steps.length} completed)` : "",
+    comments: currentStage ? `Current stage: ${currentStage.name} (${completedStages}/${template.stages.length} completed)` : "",
     createdAt: assignment.createdAt,
     updatedAt: assignment.updatedAt,
   }
@@ -192,7 +195,7 @@ const downloadFormResponse = (
   content += `Position: ${appraisal.position}\n`
   content += `Department: ${appraisal.department}\n`
   content += `Appraisal Period: ${appraisal.reviewPeriod}\n`
-  content += `Step: ${stepName}\n`
+  content += `Review Stage: ${stepName}\n`
   content += `Form: ${form.name}\n`
   if (completedDate) {
     content += `Completed Date: ${format(new Date(completedDate), "MMM dd, yyyy")}\n`
@@ -235,8 +238,9 @@ const downloadFormResponse = (
   URL.revokeObjectURL(url)
 }
 
-export default function AppraisalsPage() {
+function AppraisalsPageContent() {
   const { currentUserId, currentRole } = useRole()
+  const searchParams = useSearchParams()
   const [assignments, setAssignments] = React.useState<WorkflowAssignment[]>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -248,6 +252,7 @@ export default function AppraisalsPage() {
   const [dateTo, setDateTo] = React.useState<Date | undefined>(undefined)
   const [detailSheetOpen, setDetailSheetOpen] = React.useState(false)
   const [selectedAppraisal, setSelectedAppraisal] = React.useState<Appraisal | null>(null)
+  const [highlightedStepId, setHighlightedStepId] = React.useState<string | null>(null)
   const [isMounted, setIsMounted] = React.useState(false)
   const [formViewSheetOpen, setFormViewSheetOpen] = React.useState(false)
   const [selectedFormData, setSelectedFormData] = React.useState<{
@@ -263,6 +268,38 @@ export default function AppraisalsPage() {
     initializeWorkflowData(demoEmployees)
     setAssignments(workflowAssignments)
   }, [])
+
+  // Handle query parameters to open specific appraisal and highlight step
+  React.useEffect(() => {
+    if (!isMounted || assignments.length === 0) return
+    
+    const assignmentId = searchParams?.get("assignmentId")
+    const stepId = searchParams?.get("stepId")
+    
+    if (assignmentId) {
+      // Find the appraisal for this assignment
+      const assignment = assignments.find((a) => a.id === assignmentId)
+      if (assignment) {
+        const appraisal = convertAssignmentToAppraisal(assignment)
+        if (appraisal) {
+          setSelectedAppraisal(appraisal)
+          setDetailSheetOpen(true)
+          
+          // Highlight the specific step if stepId is provided
+          if (stepId) {
+            setHighlightedStepId(stepId)
+            // Scroll to the highlighted step after a short delay to allow sheet to open
+            setTimeout(() => {
+              const element = document.getElementById(`stage-${stepId}`)
+              if (element) {
+                element.scrollIntoView({ behavior: "smooth", block: "center" })
+              }
+            }, 300)
+          }
+        }
+      }
+    }
+  }, [isMounted, assignments, searchParams])
 
   // Get employees managed by current user (for managers)
   const managedEmployeeIds = React.useMemo(() => {
@@ -397,9 +434,9 @@ export default function AppraisalsPage() {
               <Badge variant={getStatusBadgeVariant(status)}>{status}</Badge>
               {assignment && template && (
                 <div className="text-xs text-muted-foreground">
-                  {Object.keys(assignment.stepCompletions).filter(
-                    (stepId) => assignment.stepCompletions[stepId].completed
-                  ).length} / {template.steps.length} steps
+                  {Object.keys(assignment.stageCompletions).filter(
+                    (stageId) => assignment.stageCompletions[stageId].completed
+                  ).length} / {template.stages.length} stages
                 </div>
               )}
             </div>
@@ -730,7 +767,7 @@ export default function AppraisalsPage() {
           <SheetHeader>
             <SheetTitle>Appraisal Details</SheetTitle>
             <SheetDescription>
-              View detailed information about this appraisal, workflow steps, and form feedbacks
+              View detailed information about this appraisal, review stages, and form feedbacks
             </SheetDescription>
           </SheetHeader>
 
@@ -839,58 +876,68 @@ export default function AppraisalsPage() {
                   </Card>
                 )}
 
-                {/* Workflow Steps */}
+                {/* Review Stages */}
                 {template && assignment && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>Workflow Steps</CardTitle>
+                      <CardTitle>Review Stages</CardTitle>
                       <CardDescription>
-                        {Object.keys(assignment.stepCompletions).filter(
-                          (stepId) => assignment.stepCompletions[stepId].completed
-                        ).length} of {template.steps.length} steps completed
+                        {Object.keys(assignment.stageCompletions).filter(
+                          (stageId) => assignment.stageCompletions[stageId].completed
+                        ).length} of {template.stages.length} review stages completed
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {template.steps
+                        {template.stages
                           .sort((a, b) => a.order - b.order)
-                          .map((step) => {
-                            const completion = assignment.stepCompletions[step.id]
+                          .map((stage) => {
+                            const completion = assignment.stageCompletions[stage.id]
                             const isCompleted = completion?.completed || false
-                            const form = step.evaluationFormId ? getEvaluationForm(step.evaluationFormId) : null
+                            const form = stage.evaluationFormId ? getEvaluationForm(stage.evaluationFormId) : null
+                            
+                            const isHighlighted = highlightedStepId === stage.id
                             
                             return (
-                              <div key={step.id} className="border rounded-lg p-4 space-y-3">
-                                <div className="flex items-start justify-between">
+                              <div 
+                                key={stage.id} 
+                                className={`border rounded-lg p-4 space-y-3 transition-all ${
+                                  isHighlighted 
+                                    ? "border-primary bg-primary/5 ring-2 ring-primary ring-offset-2" 
+                                    : "border-border"
+                                }`}
+                                id={`stage-${stage.id}`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
                                   <div className="flex items-start gap-3 flex-1">
                                     <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
                                       isCompleted 
                                         ? "bg-green-500 border-green-500 text-white" 
-                                        : assignment.currentStepId === step.id
+                                        : assignment.currentStageId === stage.id
                                         ? "bg-primary border-primary text-primary-foreground"
                                         : "bg-muted border-muted-foreground/30 text-muted-foreground"
                                     }`}>
                                       {isCompleted ? (
                                         <IconCheck className="size-4" />
                                       ) : (
-                                        <span className="text-xs font-semibold">{step.order}</span>
+                                        <span className="text-xs font-semibold">{stage.order}</span>
                                       )}
                                     </div>
                                     <div className="flex-1">
                                       <div className="flex items-center gap-2 mb-1">
-                                        <h4 className="font-semibold">{step.name}</h4>
-                                        <Badge variant={step.type === "evaluation" ? "default" : step.type === "meeting" ? "secondary" : step.type === "review" ? "outline" : "secondary"}>
-                                          {step.type}
+                                        <h4 className="font-semibold">{stage.name}</h4>
+                                        <Badge variant={stage.type === "evaluation" ? "default" : stage.type === "meeting" ? "secondary" : stage.type === "review" ? "outline" : "secondary"}>
+                                          {stage.type}
                                         </Badge>
                                       </div>
-                                      <p className="text-sm text-muted-foreground mb-2">{step.description}</p>
+                                      <p className="text-sm text-muted-foreground mb-2">{stage.description}</p>
                                       
                                       {/* Attendees */}
-                                      {step.attendees && step.attendees.length > 0 && (
+                                      {stage.attendees && stage.attendees.length > 0 && (
                                         <div className="flex items-center gap-2 mb-2">
                                           <IconUsers className="size-4 text-muted-foreground" />
                                           <span className="text-xs text-muted-foreground">
-                                            Attendees: {step.attendees.map(a => {
+                                            Attendees: {stage.attendees.map(a => {
                                               if (a === "employee") {
                                                 return "Employee"
                                               }
@@ -924,7 +971,7 @@ export default function AppraisalsPage() {
                                           <span>Completed on {format(new Date(completion.completedDate), "MMM dd, yyyy")}</span>
                                         </div>
                                       )}
-                                      {!isCompleted && assignment.currentStepId === step.id && (
+                                      {!isCompleted && assignment.currentStageId === stage.id && (
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                           <IconClock className="size-3 text-primary" />
                                           <span>Current Step</span>
@@ -932,6 +979,57 @@ export default function AppraisalsPage() {
                                       )}
                                     </div>
                                   </div>
+                                  
+                                  {/* Reminder Button - Only for Admin and incomplete stages */}
+                                  {currentRole === "admin" && !isCompleted && employee && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        // Early return if employee is not defined
+                                        if (!employee) return
+                                        
+                                        // Get the responsible person(s) for this stage
+                                        const responsiblePersons: string[] = []
+                                        
+                                        if (stage.attendees) {
+                                          stage.attendees.forEach((attendee) => {
+                                            if (attendee === "employee") {
+                                              responsiblePersons.push(`${employee.firstName} ${employee.lastName}`)
+                                            } else {
+                                              const managerLevelMatch = attendee.match(/^manager_level_(\d+)$/)
+                                              if (managerLevelMatch && employee) {
+                                                const level = parseInt(managerLevelMatch[1], 10)
+                                                const manager = employee.managers?.find((m) => m.level === level)
+                                                if (manager) {
+                                                  if (manager.isExternal && manager.externalName) {
+                                                    responsiblePersons.push(`Manager Level ${level} (${manager.externalName})`)
+                                                  } else if (manager.employeeId) {
+                                                    const managerEmp = getEmployee(manager.employeeId)
+                                                    if (managerEmp) {
+                                                      responsiblePersons.push(`${managerEmp.firstName} ${managerEmp.lastName}`)
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          })
+                                        }
+                                        
+                                        const recipients = responsiblePersons.length > 0 
+                                          ? responsiblePersons.join(", ")
+                                          : "the responsible person(s)"
+                                        
+                                        toast.success("Reminder sent", {
+                                          description: `A reminder has been sent to ${recipients} for the "${stage.name}" review stage.`,
+                                        })
+                                      }}
+                                      className="flex items-center gap-2 shrink-0"
+                                    >
+                                      <IconBell className="size-4" />
+                                      Send Reminder
+                                    </Button>
+                                  )}
                                 </div>
 
                                 {/* Form Feedback */}
@@ -951,7 +1049,7 @@ export default function AppraisalsPage() {
                                               setSelectedFormData({
                                                 form,
                                                 formData: completion.formData,
-                                                stepName: step.name,
+                                                stepName: stage.name,
                                                 completedDate: completion.completedDate,
                                               })
                                             }
@@ -966,7 +1064,7 @@ export default function AppraisalsPage() {
                                           size="sm"
                                           onClick={() => {
                                             if (completion.formData) {
-                                              downloadFormResponse(form, completion.formData, step.name, completion.completedDate, selectedAppraisal)
+                                              downloadFormResponse(form, completion.formData, stage.name, completion.completedDate, selectedAppraisal)
                                             }
                                           }}
                                         >
@@ -1204,5 +1302,20 @@ export default function AppraisalsPage() {
         </SheetContent>
       </Sheet>
     </div>
+  )
+}
+
+export default function AppraisalsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col gap-4 py-4 md:gap-4 md:py-4">
+        <div className="px-4 lg:px-6">
+          <h2 className="text-2xl font-semibold">Appraisals</h2>
+          <p className="text-muted-foreground mt-2">Loading...</p>
+        </div>
+      </div>
+    }>
+      <AppraisalsPageContent />
+    </Suspense>
   )
 }

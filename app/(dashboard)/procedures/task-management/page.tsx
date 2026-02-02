@@ -64,7 +64,7 @@ import {
 import { demoEmployees } from "@/lib/data/demo-employees"
 import {
   type WorkflowAssignment,
-  type WorkflowStep,
+  type ReviewStage,
   type Employee,
   type WorkflowTemplate,
   type EvaluationForm,
@@ -76,6 +76,7 @@ import {
   initializeWorkflowData,
   getEvaluationForm,
 } from "@/lib/workflow-data"
+import { useRole } from "@/lib/role-context"
 
 // Task type representing individual steps from workflow assignments
 type Task = {
@@ -107,34 +108,34 @@ type Task = {
   formData?: Record<string, unknown>
 }
 
-// Helper function to calculate due date from step configuration
+// Helper function to calculate due date from stage configuration
 const calculateDueDate = (
-  step: WorkflowStep,
+  stage: ReviewStage,
   assignmentStartDate: string,
   assignmentEndDate?: string
 ): Date | null => {
   const startDate = new Date(assignmentStartDate)
   const endDate = assignmentEndDate ? new Date(assignmentEndDate) : null
 
-  if (!step.dueDateType) return null
+  if (!stage.dueDateType) return null
 
-  switch (step.dueDateType) {
+  switch (stage.dueDateType) {
     case "on_interval":
       return startDate
     case "before_interval":
-      if (step.dueDateOffset) {
-        return addWeeks(startDate, -step.dueDateOffset)
+      if (stage.dueDateOffset) {
+        return addWeeks(startDate, -stage.dueDateOffset)
       }
       return startDate
     case "after_interval":
-      if (step.dueDateOffset) {
-        return addWeeks(startDate, step.dueDateOffset)
+      if (stage.dueDateOffset) {
+        return addWeeks(startDate, stage.dueDateOffset)
       }
       return endDate || startDate
     case "custom":
-      if (step.dueDateOffset !== undefined && step.dueDateUnit) {
-        const offset = step.dueDateOffset
-        switch (step.dueDateUnit) {
+      if (stage.dueDateOffset !== undefined && stage.dueDateUnit) {
+        const offset = stage.dueDateOffset
+        switch (stage.dueDateUnit) {
           case "days":
             return addDays(startDate, offset)
           case "weeks":
@@ -153,22 +154,84 @@ const calculateDueDate = (
 
 // Convert workflow assignments to tasks
 const convertAssignmentsToTasks = (
-  assignments: WorkflowAssignment[]
+  assignments: WorkflowAssignment[],
+  currentEmployeeId?: string,
+  currentRole?: "admin" | "employee" | "manager"
 ): Task[] => {
   const tasks: Task[] = []
   const now = new Date()
 
-  assignments.forEach((assignment) => {
+  // Sort assignments by ID for consistent order
+  const sortedAssignments = [...assignments].sort((a, b) => a.id.localeCompare(b.id))
+
+  sortedAssignments.forEach((assignment) => {
     const template = getWorkflowTemplate(assignment.workflowTemplateId)
     const employee = getEmployee(assignment.employeeId)
 
     if (!template || !employee) return
 
-    template.steps.forEach((step) => {
-      const completion = assignment.stepCompletions[step.id]
+    // Sort stages by order for consistent processing
+    const sortedStages = [...template.stages].sort((a, b) => a.order - b.order)
+
+    sortedStages.forEach((stage) => {
+      // Role-based filtering: Managers (excluding admin) only see their own tasks and tasks where they're involved
+      if (currentRole === "manager" && currentEmployeeId && currentEmployeeId !== "admin-1") {
+        // Check if current user is the employee for this assignment
+        const isCurrentUserEmployee = assignment.employeeId === currentEmployeeId
+        
+        // Check if current user manages this employee
+        const currentUserManagesEmployee = employee.managers?.some(
+          (m) => m.employeeId === currentEmployeeId
+        )
+
+        // Skip if current user is not the employee and doesn't manage this employee
+        if (!isCurrentUserEmployee && !currentUserManagesEmployee) return
+
+        // If current user manages this employee, check if they're involved in this stage
+        if (currentUserManagesEmployee && !isCurrentUserEmployee) {
+          let isCurrentUserInvolved = false
+          
+          if (stage.attendees) {
+            stage.attendees.forEach((attendee) => {
+              if (attendee.startsWith("manager_level_")) {
+                const levelMatch = attendee.match(/manager_level_(\d+)/)
+                if (levelMatch && employee.managers) {
+                  const level = Number.parseInt(levelMatch[1], 10)
+                  const manager = employee.managers.find((m) => m.level === level)
+                  if (manager?.employeeId === currentEmployeeId) {
+                    isCurrentUserInvolved = true
+                  }
+                }
+              }
+            })
+          }
+          
+          // Skip if current user is not involved in this stage
+          if (!isCurrentUserInvolved) return
+        }
+        
+        // If current user is the employee, only show stages where they are an attendee
+        if (isCurrentUserEmployee && !stage.attendees?.includes("employee")) {
+          return
+        }
+      }
+      
+      // For non-admin roles, skip stages that don't exist in stageCompletions (they were filtered out during initialization)
+      // Exception: Managers can see approval stages even if not in stageCompletions yet
+      if (currentRole !== "admin" && currentRole !== undefined) {
+        const isApprovalStage = stage.type === "approval"
+        const isManagerViewingRelatedTask = currentRole === "manager" && currentEmployeeId && currentEmployeeId !== "admin-1" && employee.managers?.some((m) => m.employeeId === currentEmployeeId)
+        
+        // Skip if stage not in completions, unless it's an approval stage for a manager
+        if (!(stage.id in assignment.stageCompletions) && !(isApprovalStage && isManagerViewingRelatedTask)) {
+          return
+        }
+      }
+      
+      const completion = assignment.stageCompletions[stage.id]
       const isCompleted = completion?.completed || false
       const dueDate = calculateDueDate(
-        step,
+        stage,
         assignment.startDate,
         assignment.endDate
       )
@@ -181,19 +244,19 @@ const convertAssignmentsToTasks = (
         status = "completed"
       } else if (dueDate && isBefore(dueDate, now) && !isCompleted) {
         status = "overdue"
-      } else if (assignment.currentStepId === step.id) {
+      } else if (assignment.currentStageId === stage.id) {
         status = "in_progress"
       }
 
       // Get evaluation form name if exists
-      const form = step.evaluationFormId
-        ? getEvaluationForm(step.evaluationFormId)
+      const form = stage.evaluationFormId
+        ? getEvaluationForm(stage.evaluationFormId)
         : null
 
       // Format attendees
       const attendees: string[] = []
-      if (step.attendees) {
-        step.attendees.forEach((attendee) => {
+      if (stage.attendees) {
+        stage.attendees.forEach((attendee) => {
           if (attendee === "employee") {
             attendees.push(`${employee.firstName} ${employee.lastName}`)
           } else {
@@ -221,30 +284,30 @@ const convertAssignmentsToTasks = (
       }
 
       const task: Task = {
-        id: `${assignment.id}-${step.id}`,
+        id: `${assignment.id}-${stage.id}`,
         assignmentId: assignment.id,
-        stepId: step.id,
+        stepId: stage.id,
         employeeId: employee.id,
         employeeName: `${employee.firstName} ${employee.lastName}`,
         employeeEmail: employee.email,
         department: employee.department,
         position: employee.position,
         procedureName: template.name,
-        stepName: step.name,
-        stepDescription: step.description || "",
-        stepType: step.type,
+        stepName: stage.name,
+        stepDescription: stage.description || "",
+        stepType: stage.type,
         status,
         dueDate,
         completedDate: completion?.completedDate || null,
         completedBy: completion?.completedBy || null,
         attendees,
-        evaluationFormId: step.evaluationFormId,
+        evaluationFormId: stage.evaluationFormId,
         evaluationFormName: form?.name,
-        isRequired: step.required,
-        reminderSettings: step.reminderSettings
+        isRequired: stage.required,
+        reminderSettings: stage.reminderSettings
           ? {
-              ...step.reminderSettings,
-              channels: step.reminderSettings.channels || ["email", "in-app"],
+              ...stage.reminderSettings,
+              channels: stage.reminderSettings.channels || ["email", "in-app"],
             }
           : undefined,
         formData: completion?.formData,
@@ -305,6 +368,7 @@ const getStepTypeColor = (type: Task["stepType"]) => {
 }
 
 export default function TaskManagementPage() {
+  const { currentUserId, currentRole } = useRole()
   const [assignments, setAssignments] = React.useState<WorkflowAssignment[]>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -323,10 +387,10 @@ export default function TaskManagementPage() {
     setAssignments(workflowAssignments)
   }, [])
 
-  // Convert assignments to tasks
+  // Convert assignments to tasks with role-based filtering
   const tasks = React.useMemo(() => {
-    return convertAssignmentsToTasks(assignments)
-  }, [assignments])
+    return convertAssignmentsToTasks(assignments, currentUserId, currentRole)
+  }, [assignments, currentUserId, currentRole])
 
   // Get unique employees for filtering
   const uniqueEmployees = React.useMemo(() => {

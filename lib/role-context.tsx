@@ -8,21 +8,21 @@ export type UserRole = "admin" | "employee" | "manager"
 export const DEMO_USERS = {
   admin: {
     role: "admin" as UserRole,
-    userId: "admin-1", // HR Admin user
-    name: "Sarah Admin",
-    email: "sarah.admin@company.com",
+    userId: "admin-1", // HR Director
+    name: "Nimali Perera",
+    email: "nimali.perera@company.lk",
   },
   employee: {
     role: "employee" as UserRole,
-    userId: "1", // John Doe - regular employee
-    name: "John Doe",
-    email: "john.doe@company.com",
+    userId: "eng-1", // Senior Software Engineer
+    name: "Kavindu Silva",
+    email: "kavindu.silva@company.lk",
   },
   manager: {
     role: "manager" as UserRole,
-    userId: "2", // Jane Smith - Marketing Manager
-    name: "Jane Smith",
-    email: "jane.smith@company.com",
+    userId: "eng-manager-1", // Engineering Manager
+    name: "Rajitha Wickramasinghe",
+    email: "rajitha.wickramasinghe@company.lk",
   },
 } as const
 

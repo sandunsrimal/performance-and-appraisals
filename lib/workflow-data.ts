@@ -9,7 +9,7 @@ import type {
 } from "./types"
 import { demoWorkflowTemplates } from "./data/demo-workflow-templates"
 import { demoEvaluationForms } from "./data/demo-evaluation-forms"
-import { filterStepsByEmployeeRole } from "./employee-role-utils"
+import { filterStagesByEmployeeRole } from "./employee-role-utils"
 
 // In-memory data stores (would be replaced with API/database in production)
 export let workflowTemplates: WorkflowTemplate[] = []
@@ -42,9 +42,9 @@ export function initializeWorkflowData(initialEmployees: Employee[] = []) {
         const template = workflowTemplates.find((t) => t.id === workflowId)
         if (!template) return
         
-        // Filter steps based on employee role
-        const allowedSteps = filterStepsByEmployeeRole(template.steps, employee, initialEmployees)
-        if (allowedSteps.length === 0) return // Skip if no steps are allowed for this employee
+        // Filter stages based on employee role
+        const allowedStages = filterStagesByEmployeeRole(template.stages, employee, initialEmployees)
+        if (allowedStages.length === 0) return // Skip if no stages are allowed for this employee
         
         // Calculate dates based on interval
         const startDate = new Date(now)
@@ -110,7 +110,7 @@ export function initializeWorkflowData(initialEmployees: Employee[] = []) {
         }
         
         // Helper function to generate realistic form data based on form ID
-        const generateFormData = (formId: string, stepType: string, isEmployee: boolean): Record<string, unknown> => {
+        const generateFormData = (formId: string, stageType: string, isEmployee: boolean): Record<string, unknown> => {
           const form = evaluationForms.find((f) => f.id === formId)
           if (!form) return {}
           
@@ -160,18 +160,39 @@ export function initializeWorkflowData(initialEmployees: Employee[] = []) {
           return formData
         }
 
-        // Initialize step completions with realistic data (only for allowed steps)
-        const stepCompletions: Record<string, { completed: boolean; completedDate?: string; completedBy?: string; formData?: Record<string, unknown> }> = {}
-        allowedSteps.forEach((step, stepIndex) => {
-          const isCompleted = status === "completed" || (status === "in_progress" && stepIndex < template.steps.length - 1 && Math.random() > 0.3)
+        // Initialize stage completions with realistic data (only for allowed stages)
+        // IMPORTANT: Sort by order to ensure sequential processing
+        const sortedAllowedStages = [...allowedStages].sort((a, b) => a.order - b.order)
+        const stageCompletions: Record<string, { completed: boolean; completedDate?: string; completedBy?: string; formData?: Record<string, unknown> }> = {}
+        
+        sortedAllowedStages.forEach((stage, stageIndex) => {
+          // Check if all previous stages (by order) are completed
+          const previousStages = sortedAllowedStages.slice(0, stageIndex)
+          const allPreviousCompleted = previousStages.every(prevStage => stageCompletions[prevStage.id]?.completed)
           
-          // Determine who completed this step
+          // Only mark as completed if:
+          // 1. All previous stages are completed (sequential requirement)
+          // 2. AND either:
+          //    - Workflow is fully completed, OR
+          //    - Workflow is in progress and this stage should be completed (random chance, but only if previous stages are done)
+          let isCompleted = false
+          if (status === "completed") {
+            // If workflow is completed, all stages should be completed
+            isCompleted = true
+          } else if (status === "in_progress" && allPreviousCompleted) {
+            // Only mark as completed if all previous stages are done
+            // Randomly complete stages in sequence (70% chance for each stage)
+            isCompleted = Math.random() > 0.3
+          }
+          // If status is "not_started" or previous stages aren't completed, isCompleted remains false
+          
+          // Determine who completed this stage
           let completedBy: string | undefined
-          if (step.attendees?.includes("employee")) {
+          if (stage.attendees?.includes("employee")) {
             completedBy = employee.id
-          } else if (step.attendees) {
+          } else if (stage.attendees) {
             // Find manager level from attendees
-            const managerLevelMatch = step.attendees.find(a => a.startsWith("manager_level_"))?.match(/manager_level_(\d+)/)
+            const managerLevelMatch = stage.attendees.find(a => a.startsWith("manager_level_"))?.match(/manager_level_(\d+)/)
             if (managerLevelMatch && employee.managers) {
               const level = Number.parseInt(managerLevelMatch[1], 10)
               const manager = employee.managers.find((m) => m.level === level)
@@ -181,23 +202,26 @@ export function initializeWorkflowData(initialEmployees: Employee[] = []) {
             }
           }
           
-          // Generate realistic form data if step has a form
-          const formData = isCompleted && step.evaluationFormId
-            ? generateFormData(step.evaluationFormId, step.type, step.attendees?.includes("employee") || false)
+          // Generate realistic form data if stage has a form
+          const formData = isCompleted && stage.evaluationFormId
+            ? generateFormData(stage.evaluationFormId, stage.type, stage.attendees?.includes("employee") || false)
             : undefined
           
-          stepCompletions[step.id] = {
+          // Calculate completion date based on stage order (not array index)
+          const stageOrder = stage.order
+          const totalStages = template.stages.length
+          stageCompletions[stage.id] = {
             completed: isCompleted,
             completedDate: isCompleted 
-              ? new Date(startDate.getTime() + (stepIndex + 1) * (endDate ? (endDate.getTime() - startDate.getTime()) / template.steps.length : 86400000)).toISOString()
+              ? new Date(startDate.getTime() + (stageOrder - 1) * (endDate ? (endDate.getTime() - startDate.getTime()) / totalStages : 86400000)).toISOString()
               : undefined,
             completedBy,
             formData,
           }
         })
         
-        // Find current step (first incomplete step from allowed steps)
-        const currentStep = allowedSteps.find((step) => !stepCompletions[step.id]?.completed)
+        // Find current stage (first incomplete stage from allowed stages)
+        const currentStage = allowedStages.find((stage) => !stageCompletions[stage.id]?.completed)
         
         const assignment: WorkflowAssignment = {
           id: `assignment-${employee.id}-${workflowId}-${index}`,
@@ -206,8 +230,8 @@ export function initializeWorkflowData(initialEmployees: Employee[] = []) {
           status,
           startDate: startDate.toISOString(),
           endDate: endDate?.toISOString(),
-          currentStepId: currentStep?.id,
-          stepCompletions,
+          currentStageId: currentStage?.id,
+          stageCompletions,
           meetings: [],
           createdAt: startDate.toISOString(),
           updatedAt: status === "completed" && endDate ? endDate.toISOString() : now.toISOString(),

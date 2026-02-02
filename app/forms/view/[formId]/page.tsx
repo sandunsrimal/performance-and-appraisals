@@ -95,7 +95,7 @@ export default function FormViewPage({
 
         if (template) {
           setProcedureName(template.name)
-          const step = template.steps.find((s) => s.id === stepId)
+          const step = template.stages.find((s) => s.id === stepId)
           if (step && employee) {
             setStepName(step.name)
 
@@ -130,7 +130,7 @@ export default function FormViewPage({
         }
 
         // Load form data
-        const completion = assignment.stepCompletions[stepId]
+        const completion = assignment.stageCompletions[stepId]
         if (completion?.formData) {
           setFormData(completion.formData as Record<string, unknown>)
         }

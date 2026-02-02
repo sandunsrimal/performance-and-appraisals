@@ -1,6 +1,6 @@
-// Utility functions for determining employee roles and filtering workflow steps
+// Utility functions for determining employee roles and filtering review stages
 
-import type { Employee, WorkflowStep } from "./types"
+import type { Employee, ReviewStage } from "./types"
 import { getEmployee } from "./workflow-data"
 
 /**
@@ -45,25 +45,25 @@ export function getEmployeeRoleCategory(
 }
 
 /**
- * Check if a step type is allowed for an employee role category
+ * Check if a stage type is allowed for an employee role category
  */
-export function isStepTypeAllowedForRole(
-  stepType: WorkflowStep["type"],
+export function isStageTypeAllowedForRole(
+  stageType: ReviewStage["type"],
   roleCategory: EmployeeRoleCategory
 ): boolean {
   switch (roleCategory) {
     case "no_managers":
       // Can have: meetings, review, approval
-      return stepType === "meeting" || stepType === "review" || stepType === "approval"
+      return stageType === "meeting" || stageType === "review" || stageType === "approval"
     
     case "one_manager":
     case "two_managers":
       // Can have: form fill (evaluation), meetings
-      return stepType === "evaluation" || stepType === "meeting"
+      return stageType === "evaluation" || stageType === "meeting"
     
     case "manages_others":
-      // Can have: all steps except approval
-      return stepType !== "approval"
+      // Can have: all stages except approval
+      return stageType !== "approval"
     
     default:
       return false
@@ -71,20 +71,20 @@ export function isStepTypeAllowedForRole(
 }
 
 /**
- * Filter workflow steps based on employee role
- * @param steps - Array of workflow steps to filter
+ * Filter review stages based on employee role
+ * @param stages - Array of review stages to filter
  * @param employee - The employee to check role for
  * @param allEmployees - Array of all employees (optional, for checking if employee manages others)
  */
-export function filterStepsByEmployeeRole(
-  steps: WorkflowStep[],
+export function filterStagesByEmployeeRole(
+  stages: ReviewStage[],
   employee: Employee,
   allEmployees: Employee[] = []
-): WorkflowStep[] {
+): ReviewStage[] {
   const roleCategory = getEmployeeRoleCategory(employee, allEmployees)
   
-  return steps.filter((step) => 
-    isStepTypeAllowedForRole(step.type, roleCategory)
+  return stages.filter((stage) => 
+    isStageTypeAllowedForRole(stage.type, roleCategory)
   )
 }
 
@@ -96,35 +96,35 @@ export interface TaskContext {
   employeeId: string
   currentUserName: string // Name of the current user viewing the task
   currentUserId: string
-  stepName: string
-  stepType: WorkflowStep["type"]
+  stageName: string
+  stageType: ReviewStage["type"]
   procedureName: string
   isForCurrentUser: boolean // Whether this task is for the current user
-  userRoleInStep: "employee" | "manager" | "reviewer" | "approver" // What role the current user has in this step
+  userRoleInStage: "employee" | "manager" | "reviewer" | "approver" // What role the current user has in this stage
 }
 
 /**
- * Get context information for a workflow step
+ * Get context information for a review stage
  */
 export function getTaskContext(
   employee: Employee,
   currentUserId: string,
   currentUserName: string,
-  step: WorkflowStep,
+  stage: ReviewStage,
   procedureName: string
 ): TaskContext {
   const employeeName = `${employee.firstName} ${employee.lastName}`
   const isForCurrentUser = employee.id === currentUserId
   
-  // Determine user's role in this step
-  let userRoleInStep: TaskContext["userRoleInStep"] = "employee"
+  // Determine user's role in this stage
+  let userRoleInStage: TaskContext["userRoleInStage"] = "employee"
   
-  if (step.attendees) {
-    if (step.attendees.includes("employee") && isForCurrentUser) {
-      userRoleInStep = "employee"
-    } else if (step.attendees.some((a) => a.startsWith("manager_level_"))) {
+  if (stage.attendees) {
+    if (stage.attendees.includes("employee") && isForCurrentUser) {
+      userRoleInStage = "employee"
+    } else if (stage.attendees.some((a) => a.startsWith("manager_level_"))) {
       // Check if current user is a manager for this employee
-      const managerLevelMatch = step.attendees
+      const managerLevelMatch = stage.attendees
         .find((a) => a.startsWith("manager_level_"))
         ?.match(/manager_level_(\d+)/)
       
@@ -133,12 +133,12 @@ export function getTaskContext(
         const manager = employee.managers.find((m) => m.level === level)
         
         if (manager?.employeeId === currentUserId) {
-          if (step.type === "review") {
-            userRoleInStep = "reviewer"
-          } else if (step.type === "approval") {
-            userRoleInStep = "approver"
+          if (stage.type === "review") {
+            userRoleInStage = "reviewer"
+          } else if (stage.type === "approval") {
+            userRoleInStage = "approver"
           } else {
-            userRoleInStep = "manager"
+            userRoleInStage = "manager"
           }
         }
       }
@@ -150,11 +150,11 @@ export function getTaskContext(
     employeeId: employee.id,
     currentUserName,
     currentUserId,
-    stepName: step.name,
-    stepType: step.type,
+    stageName: stage.name,
+    stageType: stage.type,
     procedureName,
     isForCurrentUser,
-    userRoleInStep,
+    userRoleInStage,
   }
 }
 
@@ -166,20 +166,20 @@ export function formatTaskContextDisplay(context: TaskContext): {
   subtitle: string
   badge: string
 } {
-  const { employeeName, currentUserName, stepName, stepType, procedureName, isForCurrentUser, userRoleInStep } = context
+  const { employeeName, currentUserName, stageName, stageType, procedureName, isForCurrentUser, userRoleInStage } = context
   
   let title = ""
   let subtitle = ""
   let badge = ""
   
   if (isForCurrentUser) {
-    title = `${stepName} - ${procedureName}`
+    title = `${stageName} - ${procedureName}`
     subtitle = `For: ${employeeName} (You)`
-    badge = `Your ${stepType}`
+    badge = `Your ${stageType}`
   } else {
-    title = `${stepName} - ${procedureName}`
-    subtitle = `For: ${employeeName} | Your Role: ${userRoleInStep.charAt(0).toUpperCase() + userRoleInStep.slice(1)}`
-    badge = `${userRoleInStep.charAt(0).toUpperCase() + userRoleInStep.slice(1)} ${stepType}`
+    title = `${stageName} - ${procedureName}`
+    subtitle = `For: ${employeeName} | Your Role: ${userRoleInStage.charAt(0).toUpperCase() + userRoleInStage.slice(1)}`
+    badge = `${userRoleInStage.charAt(0).toUpperCase() + userRoleInStage.slice(1)} ${stageType}`
   }
   
   return { title, subtitle, badge }

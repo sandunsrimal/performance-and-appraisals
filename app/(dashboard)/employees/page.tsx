@@ -1291,7 +1291,7 @@ export default function EmployeesPage() {
                               )}
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge variant="secondary" className="text-xs">
-                                  {procedure.steps.length} {procedure.steps.length === 1 ? "step" : "steps"}
+                                  {procedure.stages.length} {procedure.stages.length === 1 ? "stage" : "stages"}
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
                                   {procedure.interval.type === "quarterly"
@@ -1367,7 +1367,7 @@ export default function EmployeesPage() {
                               )}
                               <div className="flex items-center gap-2 mt-2">
                                 <Badge variant="secondary" className="text-xs">
-                                  {procedure.steps.length} {procedure.steps.length === 1 ? "step" : "steps"}
+                                  {procedure.stages.length} {procedure.stages.length === 1 ? "stage" : "stages"}
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
                                   {procedure.interval.type === "quarterly"

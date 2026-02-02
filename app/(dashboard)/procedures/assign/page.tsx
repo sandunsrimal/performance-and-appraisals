@@ -79,65 +79,11 @@ import {
   getWorkflowTemplate,
   getEmployee,
 } from "@/lib/workflow-data"
-
-// Sample employees (in real app, fetch from API)
-const sampleEmployees: Employee[] = [
-  {
-    id: "1",
-    firstName: "John",
-    lastName: "Doe",
-    email: "john.doe@company.com",
-    phone: "(555) 123-4567",
-    department: "Engineering",
-    position: "Software Engineer",
-    status: "Active",
-    hireDate: "2020-01-15",
-    address: "123 Main St",
-    city: "San Francisco",
-    state: "CA",
-    zipCode: "94102",
-    emergencyContact: "Jane Doe",
-    emergencyPhone: "(555) 123-4568",
-  },
-  {
-    id: "2",
-    firstName: "Jane",
-    lastName: "Smith",
-    email: "jane.smith@company.com",
-    phone: "(555) 234-5678",
-    department: "Marketing",
-    position: "Marketing Manager",
-    status: "Active",
-    hireDate: "2019-03-20",
-    address: "456 Oak Ave",
-    city: "Los Angeles",
-    state: "CA",
-    zipCode: "90001",
-    emergencyContact: "Bob Smith",
-    emergencyPhone: "(555) 234-5679",
-  },
-  {
-    id: "5",
-    firstName: "David",
-    lastName: "Wilson",
-    email: "david.wilson@company.com",
-    phone: "(555) 567-8901",
-    department: "Engineering",
-    position: "Senior Software Engineer",
-    status: "Active",
-    hireDate: "2022-02-14",
-    address: "654 Maple Dr",
-    city: "Seattle",
-    state: "WA",
-    zipCode: "98101",
-    emergencyContact: "Lisa Wilson",
-    emergencyPhone: "(555) 567-8902",
-  },
-]
+import { demoEmployees } from "@/lib/data/demo-employees"
 
 export default function ProcedureAssignPage() {
   const [assignments, setAssignments] = React.useState<WorkflowAssignment[]>([])
-  const [employees] = React.useState<Employee[]>(sampleEmployees)
+  const [employees] = React.useState<Employee[]>(demoEmployees)
   const [templates, setTemplates] = React.useState<WorkflowTemplate[]>([])
   const [isSheetOpen, setIsSheetOpen] = React.useState(false)
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -211,26 +157,26 @@ export default function ProcedureAssignPage() {
         const employee = getEmployee(employeeId)
         if (!employee) return null
 
-        // Calculate end date based on procedure steps
+        // Calculate end date based on procedure review stages
         // Find the maximum offset from appraisal date
         let maxOffsetDays = 0
-        template.steps.forEach((step) => {
-          if (step.dueDateType && step.dueDateOffset !== undefined) {
+        template.stages.forEach((stage) => {
+          if (stage.dueDateType && stage.dueDateOffset !== undefined) {
             let offsetDays = 0
-            if (step.dueDateType === "before_interval") {
+            if (stage.dueDateType === "before_interval") {
               // Before interval: convert weeks to days (negative)
-              offsetDays = -(step.dueDateOffset * 7)
-            } else if (step.dueDateType === "after_interval") {
+              offsetDays = -(stage.dueDateOffset * 7)
+            } else if (stage.dueDateType === "after_interval") {
               // After interval: convert weeks to days (positive)
-              offsetDays = step.dueDateOffset * 7
-            } else if (step.dueDateType === "custom" && step.dueDateOffset && step.dueDateUnit) {
+              offsetDays = stage.dueDateOffset * 7
+            } else if (stage.dueDateType === "custom" && stage.dueDateOffset && stage.dueDateUnit) {
               // Custom: convert based on unit
-              if (step.dueDateUnit === "days") {
-                offsetDays = step.dueDateOffset
-              } else if (step.dueDateUnit === "weeks") {
-                offsetDays = step.dueDateOffset * 7
-              } else if (step.dueDateUnit === "months") {
-                offsetDays = step.dueDateOffset * 30
+              if (stage.dueDateUnit === "days") {
+                offsetDays = stage.dueDateOffset
+              } else if (stage.dueDateUnit === "weeks") {
+                offsetDays = stage.dueDateOffset * 7
+              } else if (stage.dueDateUnit === "months") {
+                offsetDays = stage.dueDateOffset * 30
               }
             }
             // Track the maximum positive offset (furthest date after appraisal)
@@ -263,8 +209,8 @@ export default function ProcedureAssignPage() {
           status: "not_started" as const,
           startDate: format(startDate, "yyyy-MM-dd"),
           endDate: format(endDate, "yyyy-MM-dd"),
-          currentStepId: template.steps.length > 0 ? template.steps[0].id : undefined,
-          stepCompletions: {} as Record<string, {
+          currentStageId: template.stages.length > 0 ? template.stages[0].id : undefined,
+          stageCompletions: {} as Record<string, {
             completed: boolean
             completedDate?: string
             completedBy?: string
@@ -327,7 +273,7 @@ export default function ProcedureAssignPage() {
             <div>
               <div className="font-medium">{template?.name || "Unknown"}</div>
               <div className="text-sm text-muted-foreground">
-                {template?.steps.length || 0} steps
+                {template?.stages.length || 0} {template?.stages.length === 1 ? "stage" : "stages"}
               </div>
             </div>
           )
@@ -363,19 +309,19 @@ export default function ProcedureAssignPage() {
           row.original.endDate ? format(new Date(row.original.endDate), "MMM dd, yyyy") : "N/A",
       },
       {
-        accessorKey: "currentStepId",
+        accessorKey: "currentStageId",
         header: "Progress",
         cell: ({ row }) => {
           const template = getWorkflowTemplate(row.original.workflowTemplateId)
           if (!template) return "N/A"
 
-          const completedSteps = Object.keys(row.original.stepCompletions).filter(
-            (stepId) => row.original.stepCompletions[stepId].completed
+          const completedStages = Object.keys(row.original.stageCompletions).filter(
+            (stageId) => row.original.stageCompletions[stageId].completed
           ).length
 
           return (
             <div className="text-sm">
-              {completedSteps} / {template.steps.length} steps completed
+              {completedStages} / {template.stages.length} {template.stages.length === 1 ? "stage" : "stages"} completed
             </div>
           )
         },
@@ -473,7 +419,7 @@ export default function ProcedureAssignPage() {
                       </div>
                       <div className="mt-2 flex gap-2">
                         <Badge variant="secondary">
-                          {getWorkflowTemplate(selectedProcedureId)?.steps.length} steps
+                          {getWorkflowTemplate(selectedProcedureId)?.stages.length} {getWorkflowTemplate(selectedProcedureId)?.stages.length === 1 ? "stage" : "stages"}
                         </Badge>
                         <Badge variant="secondary">
                           {getWorkflowTemplate(selectedProcedureId)?.meetingFrequencies.length} meetings

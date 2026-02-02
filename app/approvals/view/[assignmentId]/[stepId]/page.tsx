@@ -38,7 +38,7 @@ export default function ApprovalViewPage({
   const [assignment, setAssignment] = React.useState<typeof workflowAssignments[number] | null>(null)
   const [template, setTemplate] = React.useState<ReturnType<typeof getWorkflowTemplate> | null>(null)
   const [employee, setEmployee] = React.useState<ReturnType<typeof getEmployee> | null>(null)
-  const [step, setStep] = React.useState<NonNullable<ReturnType<typeof getWorkflowTemplate>>["steps"][number] | null>(null)
+  const [stage, setStage] = React.useState<NonNullable<ReturnType<typeof getWorkflowTemplate>>["stages"][number] | null>(null)
   const [managerName, setManagerName] = React.useState<string>("")
 
   // Initialize workflow data
@@ -69,13 +69,13 @@ export default function ApprovalViewPage({
 
     setTemplate(templateData)
 
-    const stepData = templateData.steps.find((s) => s.id === resolvedParams.stepId)
-    if (!stepData) {
-      toast.error("Step not found")
+    const stageData = templateData.stages.find((s) => s.id === resolvedParams.stepId)
+    if (!stageData) {
+      toast.error("Review stage not found")
       return
     }
 
-    setStep(stepData)
+    setStage(stageData)
 
     const employeeData = getEmployee(assignmentData.employeeId)
     if (!employeeData) {
@@ -85,9 +85,9 @@ export default function ApprovalViewPage({
 
     setEmployee(employeeData)
 
-    // Get manager name from step attendees
-    if (stepData.attendees && employeeData.managers) {
-      stepData.attendees.forEach((attendee) => {
+    // Get manager name from stage attendees
+    if (stageData.attendees && employeeData.managers) {
+      stageData.attendees.forEach((attendee) => {
         if (attendee.startsWith("manager_level_")) {
           const levelMatch = attendee.match(/manager_level_(\d+)/)
           if (levelMatch) {
@@ -109,7 +109,7 @@ export default function ApprovalViewPage({
     }
   }, [resolvedParams.assignmentId, resolvedParams.stepId])
 
-  if (!assignment || !template || !employee || !step) {
+  if (!assignment || !template || !employee || !stage) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <p>Loading approval details...</p>
@@ -117,16 +117,16 @@ export default function ApprovalViewPage({
     )
   }
 
-  const isCompleted = assignment.stepCompletions[resolvedParams.stepId]?.completed
-  const completionData = assignment.stepCompletions[resolvedParams.stepId]?.formData as
+  const isCompleted = assignment.stageCompletions[resolvedParams.stepId]?.completed
+  const completionData = assignment.stageCompletions[resolvedParams.stepId]?.formData as
     | { approved?: boolean; comment?: string }
     | undefined
 
-  // Get all completed steps
-  const completedSteps = template.steps.filter(
-    (s) => assignment.stepCompletions[s.id]?.completed
+  // Get all completed stages
+  const completedStages = template.stages.filter(
+    (s) => assignment.stageCompletions[s.id]?.completed
   )
-  const totalSteps = template.steps.length
+  const totalStages = template.stages.length
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -204,17 +204,17 @@ export default function ApprovalViewPage({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
-                  Steps Completed
+                  Review Stages Completed
                 </span>
                 <span className="text-sm font-medium">
-                  {completedSteps.length} / {totalSteps}
+                  {completedStages.length} / {totalStages}
                 </span>
               </div>
               <div className="w-full bg-muted rounded-full h-2">
                 <div
                   className="bg-primary h-2 rounded-full transition-all"
                   style={{
-                    width: `${(completedSteps.length / totalSteps) * 100}%`,
+                    width: `${(completedStages.length / totalStages) * 100}%`,
                   }}
                 />
               </div>
@@ -247,13 +247,13 @@ export default function ApprovalViewPage({
                   </p>
                 </div>
               )}
-              {assignment.stepCompletions[resolvedParams.stepId]?.completedDate && (
+              {assignment.stageCompletions[resolvedParams.stepId]?.completedDate && (
                 <div>
                   <Label className="text-sm font-medium">Decision Date</Label>
                   <p className="text-sm mt-1">
                     {format(
                       new Date(
-                        assignment.stepCompletions[resolvedParams.stepId]
+                        assignment.stageCompletions[resolvedParams.stepId]
                           ?.completedDate || ""
                       ),
                       "MMM dd, yyyy 'at' h:mm a"
@@ -265,20 +265,20 @@ export default function ApprovalViewPage({
           </Card>
         )}
 
-        {/* Step Details */}
+        {/* Review Stage Details */}
         <Card>
           <CardHeader>
-            <CardTitle>Step Details</CardTitle>
+            <CardTitle>Review Stage Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label className="text-sm font-medium">Step Name</Label>
-              <p className="text-sm mt-1">{step.name}</p>
+              <Label className="text-sm font-medium">Stage Name</Label>
+              <p className="text-sm mt-1">{stage.name}</p>
             </div>
-            {step.description && (
+            {stage.description && (
               <div>
                 <Label className="text-sm font-medium">Description</Label>
-                <p className="text-sm mt-1">{step.description}</p>
+                <p className="text-sm mt-1">{stage.description}</p>
               </div>
             )}
           </CardContent>

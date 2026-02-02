@@ -47,7 +47,7 @@ export default function MeetingJoinPage({
   const [assignment, setAssignment] = React.useState<typeof workflowAssignments[number] | null>(null)
   const [template, setTemplate] = React.useState<ReturnType<typeof getWorkflowTemplate> | null>(null)
   const [employee, setEmployee] = React.useState<ReturnType<typeof getEmployee> | null>(null)
-  const [step, setStep] = React.useState<NonNullable<ReturnType<typeof getWorkflowTemplate>>["steps"][number] | null>(null)
+  const [stage, setStage] = React.useState<NonNullable<ReturnType<typeof getWorkflowTemplate>>["stages"][number] | null>(null)
   const [managerName, setManagerName] = React.useState<string>("")
   const [meetingNotes, setMeetingNotes] = React.useState<string>("")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -83,13 +83,13 @@ export default function MeetingJoinPage({
 
     setTemplate(templateData)
 
-    const stepData = templateData.steps.find((s) => s.id === resolvedParams.stepId)
-    if (!stepData) {
-      toast.error("Step not found")
+    const stageData = templateData.stages.find((s) => s.id === resolvedParams.stepId)
+    if (!stageData) {
+      toast.error("Review stage not found")
       return
     }
 
-    setStep(stepData)
+    setStage(stageData)
 
     const employeeData = getEmployee(assignmentData.employeeId)
     if (!employeeData) {
@@ -99,9 +99,9 @@ export default function MeetingJoinPage({
 
     setEmployee(employeeData)
 
-    // Get manager name from step attendees
-    if (stepData.attendees && employeeData.managers) {
-      stepData.attendees.forEach((attendee) => {
+    // Get manager name from stage attendees
+    if (stageData.attendees && employeeData.managers) {
+      stageData.attendees.forEach((attendee) => {
         if (attendee.startsWith("manager_level_")) {
           const levelMatch = attendee.match(/manager_level_(\d+)/)
           if (levelMatch) {
@@ -123,7 +123,7 @@ export default function MeetingJoinPage({
     }
 
     // Load existing meeting notes if available
-    const existingData = assignmentData.stepCompletions[resolvedParams.stepId]?.formData as
+    const existingData = assignmentData.stageCompletions[resolvedParams.stepId]?.formData as
       | { meetingNotes?: string }
       | undefined
     if (existingData?.meetingNotes) {
@@ -152,8 +152,8 @@ export default function MeetingJoinPage({
 
     setIsSubmitting(true)
 
-    // Update step completion
-    assignment.stepCompletions[resolvedParams.stepId] = {
+    // Update stage completion
+    assignment.stageCompletions[resolvedParams.stepId] = {
       completed: true,
       completedDate: new Date().toISOString(),
       completedBy: assignment.employeeId,
@@ -163,10 +163,10 @@ export default function MeetingJoinPage({
       },
     }
 
-    // Update assignment status if all steps are completed
+    // Update assignment status if all stages are completed
     if (template) {
-      const allCompleted = template.steps.every(
-        (step) => assignment.stepCompletions[step.id]?.completed
+      const allCompleted = template.stages.every(
+        (stage) => assignment.stageCompletions[stage.id]?.completed
       )
       if (allCompleted) {
         assignment.status = "completed"
@@ -190,7 +190,7 @@ export default function MeetingJoinPage({
     toast.info("Meeting cancelled")
   }
 
-  if (!assignment || !template || !employee || !step) {
+  if (!assignment || !template || !employee || !stage) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <p>Loading meeting...</p>
@@ -198,15 +198,15 @@ export default function MeetingJoinPage({
     )
   }
 
-  const isCompleted = assignment.stepCompletions[resolvedParams.stepId]?.completed
-  const completionData = assignment.stepCompletions[resolvedParams.stepId]?.formData as
+  const isCompleted = assignment.stageCompletions[resolvedParams.stepId]?.completed
+  const completionData = assignment.stageCompletions[resolvedParams.stepId]?.formData as
     | { meetingNotes?: string; meetingEndedAt?: string }
     | undefined
 
   // Get meeting attendees
   const attendees: string[] = []
-  if (step.attendees) {
-    step.attendees.forEach((attendee) => {
+  if (stage.attendees) {
+    stage.attendees.forEach((attendee) => {
       if (attendee === "employee") {
         attendees.push(`${employee.firstName} ${employee.lastName}`)
       } else if (attendee.startsWith("manager_level_") && employee.managers) {
@@ -313,12 +313,12 @@ export default function MeetingJoinPage({
           <CardContent className="space-y-4">
             <div>
               <Label className="text-sm font-medium">Meeting Name</Label>
-              <p className="text-sm mt-1">{step.name}</p>
+              <p className="text-sm mt-1">{stage.name}</p>
             </div>
-            {step.description && (
+            {stage.description && (
               <div>
                 <Label className="text-sm font-medium">Description</Label>
-                <p className="text-sm mt-1">{step.description}</p>
+                <p className="text-sm mt-1">{stage.description}</p>
               </div>
             )}
             {attendees.length > 0 && (
@@ -333,13 +333,13 @@ export default function MeetingJoinPage({
                 </div>
               </div>
             )}
-            {step.reminderSettings && (
+            {stage.reminderSettings && (
               <div className="flex items-center gap-2">
                 <IconClock className="size-4 text-muted-foreground" />
                 <div>
                   <p className="text-xs text-muted-foreground">Reminder</p>
                   <p className="text-sm">
-                    {step.reminderSettings.reminderDays} days before meeting
+                    {stage.reminderSettings.reminderDays} days before meeting
                   </p>
                 </div>
               </div>
@@ -532,13 +532,13 @@ export default function MeetingJoinPage({
                   </p>
                 </div>
               )}
-              {assignment.stepCompletions[resolvedParams.stepId]?.completedDate && (
+              {assignment.stageCompletions[resolvedParams.stepId]?.completedDate && (
                 <div>
                   <Label className="text-sm font-medium">Completed Date</Label>
                   <p className="text-sm mt-1">
                     {format(
                       new Date(
-                        assignment.stepCompletions[resolvedParams.stepId]
+                        assignment.stageCompletions[resolvedParams.stepId]
                           ?.completedDate || ""
                       ),
                       "MMM dd, yyyy 'at' h:mm a"

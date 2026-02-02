@@ -1,258 +1,573 @@
 import type { Employee } from "../types"
 
 export const demoEmployees: Employee[] = [
-  // HR Admin - Top level, no manager
+  // HR Admin - Top level administrator
   {
     id: "admin-1",
-    firstName: "Sarah",
-    lastName: "Admin",
-    email: "sarah.admin@company.com",
-    phone: "(555) 000-0001",
+    firstName: "Nimali",
+    lastName: "Perera",
+    email: "nimali.perera@company.lk",
+    phone: "+94 77 123 4567",
     department: "HR",
-    position: "HR Administrator",
+    position: "HR Director",
     status: "Active",
-    hireDate: "2018-01-10",
-    address: "100 Admin St",
-    city: "San Francisco",
-    state: "CA",
-    zipCode: "94102",
-    emergencyContact: "Admin Contact",
-    emergencyPhone: "(555) 000-0002",
-    assignedWorkflowIds: ["workflow-2", "workflow-5"], // Annual Review + 1-on-1 Meetings
+    hireDate: "2015-03-15",
+    address: "45/1 Wijerama Road",
+    city: "Colombo 07",
+    state: "Western Province",
+    zipCode: "00700",
+    emergencyContact: "Kasun Perera",
+    emergencyPhone: "+94 77 123 4568",
+    assignedWorkflowIds: ["workflow-complete-evaluation"], // HR Director has evaluation tasks as employee
   },
-  // Senior Manager - Reports to HR
+
+  // Engineering Department
+  // Engineering Manager (Level 1 Manager for Engineers)
   {
-    id: "manager-1",
-    firstName: "Robert",
-    lastName: "Taylor",
-    email: "robert.taylor@company.com",
-    phone: "(555) 789-0123",
-    department: "Operations",
-    position: "Operations Manager",
+    id: "eng-manager-1",
+    firstName: "Rajitha",
+    lastName: "Wickramasinghe",
+    email: "rajitha.wickramasinghe@company.lk",
+    phone: "+94 71 234 5678",
+    department: "Engineering",
+    position: "Engineering Manager",
     status: "Active",
-    hireDate: "2018-07-22",
-    address: "147 Birch Way",
-    city: "Austin",
-    state: "TX",
-    zipCode: "73301",
-    emergencyContact: "Mary Taylor",
-    emergencyPhone: "(555) 789-0124",
-    assignedWorkflowIds: ["workflow-2", "workflow-5"], // Annual Review + 1-on-1 Meetings
+    hireDate: "2017-06-20",
+    address: "23 Dutugemunu Street",
+    city: "Dehiwala",
+    state: "Western Province",
+    zipCode: "10350",
+    emergencyContact: "Sanduni Wickramasinghe",
+    emergencyPhone: "+94 71 234 5679",
+    assignedWorkflowIds: ["workflow-simple-meeting", "workflow-complete-evaluation"], // Both simple meeting and complete evaluation procedures
     managers: [
       {
         level: 1,
-        employeeId: "admin-1", // Sarah Admin (HR) as manager
+        employeeId: "admin-1", // Reports to HR Director
         isExternal: false,
       },
     ],
   },
-  // Marketing Manager - Reports to Operations Manager
+
+  // Senior Software Engineer
   {
-    id: "2",
-    firstName: "Jane",
-    lastName: "Smith",
-    email: "jane.smith@company.com",
-    phone: "(555) 234-5678",
-    department: "Marketing",
-    position: "Marketing Manager",
-    status: "Active",
-    hireDate: "2019-03-20",
-    address: "456 Oak Ave",
-    city: "Los Angeles",
-    state: "CA",
-    zipCode: "90001",
-    emergencyContact: "Bob Smith",
-    emergencyPhone: "(555) 234-5679",
-    assignedWorkflowIds: ["workflow-2", "workflow-5"], // Annual Review + 1-on-1 Meetings
-    managers: [
-      {
-        level: 1,
-        employeeId: "manager-1", // Robert Taylor (Operations Manager) as Level 1 manager
-        isExternal: false,
-      },
-      {
-        level: 2,
-        employeeId: "admin-1", // Sarah Admin (HR) as Level 2 manager
-        isExternal: false,
-      },
-    ],
-  },
-  // Engineering Employees - Report to Jane Smith (Marketing Manager acting as Engineering Manager)
-  {
-    id: "1",
-    firstName: "John",
-    lastName: "Doe",
-    email: "john.doe@company.com",
-    phone: "(555) 123-4567",
+    id: "eng-1",
+    firstName: "Kavindu",
+    lastName: "Silva",
+    email: "kavindu.silva@company.lk",
+    phone: "+94 76 345 6789",
     department: "Engineering",
     position: "Senior Software Engineer",
     status: "Active",
-    hireDate: "2020-01-15",
-    address: "123 Main St",
-    city: "San Francisco",
-    state: "CA",
-    zipCode: "94102",
-    emergencyContact: "Jane Doe",
-    emergencyPhone: "(555) 123-4568",
-    assignedWorkflowIds: ["workflow-1", "workflow-5"], // Quarterly Appraisal + 1-on-1 Meetings
+    hireDate: "2019-02-10",
+    address: "67 Galle Road",
+    city: "Moratuwa",
+    state: "Western Province",
+    zipCode: "10400",
+    emergencyContact: "Dilini Silva",
+    emergencyPhone: "+94 76 345 6790",
+    assignedWorkflowIds: ["workflow-complete-evaluation"], // Complete evaluation procedure
     managers: [
       {
         level: 1,
-        employeeId: "2", // Jane Smith (Marketing Manager) as Level 1 manager
+        employeeId: "eng-manager-1", // Reports to Engineering Manager
         isExternal: false,
       },
       {
         level: 2,
-        employeeId: "manager-1", // Robert Taylor (Operations Manager) as Level 2 manager
+        employeeId: "admin-1", // Level 2 approval from HR Director
         isExternal: false,
       },
     ],
   },
+
+  // Software Engineer
   {
-    id: "5",
-    firstName: "David",
-    lastName: "Wilson",
-    email: "david.wilson@company.com",
-    phone: "(555) 567-8901",
+    id: "eng-2",
+    firstName: "Tharushi",
+    lastName: "Fernando",
+    email: "tharushi.fernando@company.lk",
+    phone: "+94 75 456 7890",
     department: "Engineering",
     position: "Software Engineer",
     status: "Active",
-    hireDate: "2022-02-14",
-    address: "654 Maple Dr",
-    city: "Seattle",
-    state: "WA",
-    zipCode: "98101",
-    emergencyContact: "Lisa Wilson",
-    emergencyPhone: "(555) 567-8902",
-    assignedWorkflowIds: ["workflow-1", "workflow-5"], // Quarterly Appraisal + 1-on-1 Meetings
+    hireDate: "2020-08-15",
+    address: "12/A Templers Road",
+    city: "Mount Lavinia",
+    state: "Western Province",
+    zipCode: "10370",
+    emergencyContact: "Roshan Fernando",
+    emergencyPhone: "+94 75 456 7891",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
     managers: [
       {
         level: 1,
-        employeeId: "2", // Jane Smith (Marketing Manager) as Level 1 manager
+        employeeId: "eng-manager-1",
         isExternal: false,
       },
       {
         level: 2,
-        employeeId: "manager-1", // Robert Taylor (Operations Manager) as Level 2 manager
+        employeeId: "admin-1",
         isExternal: false,
       },
     ],
   },
-  // Sales Employee - Reports to Jane Smith
+
+  // Junior Software Engineer
   {
-    id: "3",
-    firstName: "Michael",
-    lastName: "Johnson",
-    email: "michael.johnson@company.com",
-    phone: "(555) 345-6789",
-    department: "Sales",
-    position: "Sales Representative",
+    id: "eng-3",
+    firstName: "Aravinda",
+    lastName: "Rathnayake",
+    email: "aravinda.rathnayake@company.lk",
+    phone: "+94 72 567 8901",
+    department: "Engineering",
+    position: "Junior Software Engineer",
     status: "Active",
-    hireDate: "2021-06-10",
-    address: "789 Pine Rd",
-    city: "New York",
-    state: "NY",
-    zipCode: "10001",
-    emergencyContact: "Sarah Johnson",
-    emergencyPhone: "(555) 345-6790",
-    assignedWorkflowIds: ["workflow-3", "workflow-5"], // Probationary Review + 1-on-1 Meetings
+    hireDate: "2022-01-20",
+    address: "89 Station Road",
+    city: "Nugegoda",
+    state: "Western Province",
+    zipCode: "10250",
+    emergencyContact: "Malini Rathnayake",
+    emergencyPhone: "+94 72 567 8902",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
     managers: [
       {
         level: 1,
-        employeeId: "2", // Jane Smith (Marketing Manager) as Level 1 manager
+        employeeId: "eng-manager-1",
         isExternal: false,
       },
       {
         level: 2,
-        employeeId: "manager-1", // Robert Taylor (Operations Manager) as Level 2 manager
+        employeeId: "admin-1",
         isExternal: false,
       },
     ],
   },
-  // Finance Employee - Reports to Jane Smith
+
+  // QA Department
+  // QA Manager (Level 1 Manager for QA team)
   {
-    id: "6",
-    firstName: "Sarah",
-    lastName: "Brown",
-    email: "sarah.brown@company.com",
-    phone: "(555) 678-9012",
-    department: "Finance",
-    position: "Financial Analyst",
+    id: "qa-manager-1",
+    firstName: "Prasanna",
+    lastName: "Jayawardena",
+    email: "prasanna.jayawardena@company.lk",
+    phone: "+94 77 678 9012",
+    department: "QA",
+    position: "QA Manager",
     status: "Active",
-    hireDate: "2021-11-08",
-    address: "987 Cedar Ln",
-    city: "Boston",
-    state: "MA",
-    zipCode: "02101",
-    emergencyContact: "Mark Brown",
-    emergencyPhone: "(555) 678-9013",
-    assignedWorkflowIds: ["workflow-2", "workflow-5"], // Annual Review + 1-on-1 Meetings
+    hireDate: "2018-04-12",
+    address: "34 Kandy Road",
+    city: "Kaduwela",
+    state: "Western Province",
+    zipCode: "10640",
+    emergencyContact: "Nimesha Jayawardena",
+    emergencyPhone: "+94 77 678 9013",
+    assignedWorkflowIds: ["workflow-simple-meeting"],
     managers: [
       {
         level: 1,
-        employeeId: "2", // Jane Smith (Marketing Manager) as Level 1 manager
-        isExternal: false,
-      },
-      {
-        level: 2,
-        employeeId: "manager-1", // Robert Taylor (Operations Manager) as Level 2 manager
+        employeeId: "admin-1",
         isExternal: false,
       },
     ],
   },
-  // Design Employee - Reports to Jane Smith
+
+  // Senior QA Engineer
   {
-    id: "8",
-    firstName: "Jessica",
-    lastName: "Anderson",
-    email: "jessica.anderson@company.com",
-    phone: "(555) 890-1234",
-    department: "Design",
-    position: "UX Designer",
+    id: "qa-1",
+    firstName: "Chamara",
+    lastName: "Gunasekara",
+    email: "chamara.gunasekara@company.lk",
+    phone: "+94 71 789 0123",
+    department: "QA",
+    position: "Senior QA Engineer",
     status: "Active",
-    hireDate: "2021-04-12",
-    address: "258 Spruce St",
-    city: "Portland",
-    state: "OR",
-    zipCode: "97201",
-    emergencyContact: "Chris Anderson",
-    emergencyPhone: "(555) 890-1235",
-    assignedWorkflowIds: ["workflow-2", "workflow-5"], // Annual Review + 1-on-1 Meetings
+    hireDate: "2019-09-05",
+    address: "56 Baseline Road",
+    city: "Colombo 09",
+    state: "Western Province",
+    zipCode: "00900",
+    emergencyContact: "Sachini Gunasekara",
+    emergencyPhone: "+94 71 789 0124",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
     managers: [
       {
         level: 1,
-        employeeId: "2", // Jane Smith (Marketing Manager) as Level 1 manager
+        employeeId: "qa-manager-1",
         isExternal: false,
       },
       {
         level: 2,
-        employeeId: "manager-1", // Robert Taylor (Operations Manager) as Level 2 manager
+        employeeId: "admin-1",
         isExternal: false,
       },
     ],
   },
-  // HR Employee - Reports to Sarah Admin
+
+  // QA Engineer
   {
-    id: "4",
-    firstName: "Emily",
-    lastName: "Davis",
-    email: "emily.davis@company.com",
-    phone: "(555) 456-7890",
+    id: "qa-2",
+    firstName: "Thilini",
+    lastName: "Samaraweera",
+    email: "thilini.samaraweera@company.lk",
+    phone: "+94 76 890 1234",
+    department: "QA",
+    position: "QA Engineer",
+    status: "Active",
+    hireDate: "2021-03-10",
+    address: "78 Peradeniya Road",
+    city: "Kandy",
+    state: "Central Province",
+    zipCode: "20000",
+    emergencyContact: "Nuwan Samaraweera",
+    emergencyPhone: "+94 76 890 1235",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "qa-manager-1",
+        isExternal: false,
+      },
+      {
+        level: 2,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // HR Department
+  // HR Manager
+  {
+    id: "hr-manager-1",
+    firstName: "Samanthi",
+    lastName: "Wijekoon",
+    email: "samanthi.wijekoon@company.lk",
+    phone: "+94 75 901 2345",
+    department: "HR",
+    position: "HR Manager",
+    status: "Active",
+    hireDate: "2016-11-08",
+    address: "45 Ward Place",
+    city: "Colombo 07",
+    state: "Western Province",
+    zipCode: "00700",
+    emergencyContact: "Chanaka Wijekoon",
+    emergencyPhone: "+94 75 901 2346",
+    assignedWorkflowIds: ["workflow-simple-meeting"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // HR Specialist
+  {
+    id: "hr-1",
+    firstName: "Dinusha",
+    lastName: "Rajapaksha",
+    email: "dinusha.rajapaksha@company.lk",
+    phone: "+94 72 012 3456",
     department: "HR",
     position: "HR Specialist",
     status: "Active",
-    hireDate: "2020-09-05",
-    address: "321 Elm St",
-    city: "Chicago",
-    state: "IL",
-    zipCode: "60601",
-    emergencyContact: "Tom Davis",
-    emergencyPhone: "(555) 456-7891",
-    assignedWorkflowIds: ["workflow-2", "workflow-5"], // Annual Review + 1-on-1 Meetings
+    hireDate: "2020-05-18",
+    address: "23 Flower Road",
+    city: "Colombo 07",
+    state: "Western Province",
+    zipCode: "00700",
+    emergencyContact: "Harsha Rajapaksha",
+    emergencyPhone: "+94 72 012 3457",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
     managers: [
       {
         level: 1,
-        employeeId: "admin-1", // Sarah Admin (HR Administrator) as manager
+        employeeId: "hr-manager-1",
+        isExternal: false,
+      },
+      {
+        level: 2,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // Finance Department
+  // Finance Manager
+  {
+    id: "fin-manager-1",
+    firstName: "Ruwan",
+    lastName: "Dissanayake",
+    email: "ruwan.dissanayake@company.lk",
+    phone: "+94 77 123 4560",
+    department: "Finance",
+    position: "Finance Manager",
+    status: "Active",
+    hireDate: "2017-02-14",
+    address: "12 Gregory's Road",
+    city: "Colombo 07",
+    state: "Western Province",
+    zipCode: "00700",
+    emergencyContact: "Ishara Dissanayake",
+    emergencyPhone: "+94 77 123 4561",
+    assignedWorkflowIds: ["workflow-simple-meeting"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // Senior Financial Analyst
+  {
+    id: "fin-1",
+    firstName: "Mahesh",
+    lastName: "Liyanage",
+    email: "mahesh.liyanage@company.lk",
+    phone: "+94 71 234 5601",
+    department: "Finance",
+    position: "Senior Financial Analyst",
+    status: "Active",
+    hireDate: "2019-07-22",
+    address: "67 Dharmapala Mawatha",
+    city: "Colombo 03",
+    state: "Western Province",
+    zipCode: "00300",
+    emergencyContact: "Anusha Liyanage",
+    emergencyPhone: "+94 71 234 5602",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "fin-manager-1",
+        isExternal: false,
+      },
+      {
+        level: 2,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // Financial Analyst
+  {
+    id: "fin-2",
+    firstName: "Nishantha",
+    lastName: "Kumara",
+    email: "nishantha.kumara@company.lk",
+    phone: "+94 76 345 6012",
+    department: "Finance",
+    position: "Financial Analyst",
+    status: "Active",
+    hireDate: "2021-10-05",
+    address: "89 Main Street",
+    city: "Galle",
+    state: "Southern Province",
+    zipCode: "80000",
+    emergencyContact: "Madhavi Kumara",
+    emergencyPhone: "+94 76 345 6013",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "fin-manager-1",
+        isExternal: false,
+      },
+      {
+        level: 2,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // Design Department
+  // Design Manager
+  {
+    id: "des-manager-1",
+    firstName: "Chathurika",
+    lastName: "Amarasinghe",
+    email: "chathurika.amarasinghe@company.lk",
+    phone: "+94 75 456 7123",
+    department: "Design",
+    position: "Design Manager",
+    status: "Active",
+    hireDate: "2018-08-20",
+    address: "34 Wijerama Mawatha",
+    city: "Colombo 07",
+    state: "Western Province",
+    zipCode: "00700",
+    emergencyContact: "Ishan Amarasinghe",
+    emergencyPhone: "+94 75 456 7124",
+    assignedWorkflowIds: ["workflow-simple-meeting"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // Senior UX Designer
+  {
+    id: "des-1",
+    firstName: "Ransika",
+    lastName: "Herath",
+    email: "ransika.herath@company.lk",
+    phone: "+94 72 567 8234",
+    department: "Design",
+    position: "Senior UX Designer",
+    status: "Active",
+    hireDate: "2019-11-12",
+    address: "56 Bauddhaloka Mawatha",
+    city: "Colombo 04",
+    state: "Western Province",
+    zipCode: "00400",
+    emergencyContact: "Hasitha Herath",
+    emergencyPhone: "+94 72 567 8235",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "des-manager-1",
+        isExternal: false,
+      },
+      {
+        level: 2,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // UI Designer
+  {
+    id: "des-2",
+    firstName: "Sachini",
+    lastName: "Mendis",
+    email: "sachini.mendis@company.lk",
+    phone: "+94 77 678 9345",
+    department: "Design",
+    position: "UI Designer",
+    status: "Active",
+    hireDate: "2020-12-03",
+    address: "12 Hospital Road",
+    city: "Matara",
+    state: "Southern Province",
+    zipCode: "81000",
+    emergencyContact: "Dilan Mendis",
+    emergencyPhone: "+94 77 678 9346",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "des-manager-1",
+        isExternal: false,
+      },
+      {
+        level: 2,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // Graphic Designer
+  {
+    id: "des-3",
+    firstName: "Udara",
+    lastName: "Bandara",
+    email: "udara.bandara@company.lk",
+    phone: "+94 71 789 0456",
+    department: "Design",
+    position: "Graphic Designer",
+    status: "Active",
+    hireDate: "2021-06-15",
+    address: "78 Castle Street",
+    city: "Colombo 08",
+    state: "Western Province",
+    zipCode: "00800",
+    emergencyContact: "Buddhika Bandara",
+    emergencyPhone: "+94 71 789 0457",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "des-manager-1",
+        isExternal: false,
+      },
+      {
+        level: 2,
+        employeeId: "admin-1",
+        isExternal: false,
+      },
+    ],
+  },
+
+  // Additional employees for admin-1 to manage (for manager evaluation tasks)
+  // HR Assistant - reports directly to HR Director (admin-1)
+  {
+    id: "hr-2",
+    firstName: "Sanduni",
+    lastName: "Perera",
+    email: "sanduni.perera@company.lk",
+    phone: "+94 73 234 5678",
+    department: "HR",
+    position: "HR Assistant",
+    status: "Active",
+    hireDate: "2022-03-10",
+    address: "12 Cotta Road",
+    city: "Colombo 08",
+    state: "Western Province",
+    zipCode: "00800",
+    emergencyContact: "Kamal Perera",
+    emergencyPhone: "+94 73 234 5679",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "admin-1", // Reports directly to HR Director
+        isExternal: false,
+      },
+    ],
+  },
+
+  // Finance Assistant - reports directly to HR Director (admin-1) for cross-department management
+  {
+    id: "fin-3",
+    firstName: "Dilshan",
+    lastName: "Wijesinghe",
+    email: "dilshan.wijesinghe@company.lk",
+    phone: "+94 74 345 6789",
+    department: "Finance",
+    position: "Financial Assistant",
+    status: "Active",
+    hireDate: "2022-06-15",
+    address: "45 Galle Road",
+    city: "Colombo 03",
+    state: "Western Province",
+    zipCode: "00300",
+    emergencyContact: "Nadeesha Wijesinghe",
+    emergencyPhone: "+94 74 345 6790",
+    assignedWorkflowIds: ["workflow-complete-evaluation"],
+    managers: [
+      {
+        level: 1,
+        employeeId: "admin-1", // Reports to HR Director for evaluation purposes
+        isExternal: false,
+      },
+      {
+        level: 2,
+        employeeId: "fin-manager-1", // Also reports to Finance Manager
         isExternal: false,
       },
     ],

@@ -72,7 +72,7 @@ import {
 import { demoEmployees } from "@/lib/data/demo-employees"
 import {
   type WorkflowAssignment,
-  type WorkflowStep,
+  type ReviewStage,
 } from "@/lib/types"
 import {
   workflowAssignments,
@@ -112,32 +112,32 @@ type Task = {
 
 // Helper function to calculate due date from step configuration
 const calculateDueDate = (
-  step: WorkflowStep,
+  stage: ReviewStage,
   assignmentStartDate: string,
   assignmentEndDate?: string
 ): Date | null => {
   const startDate = new Date(assignmentStartDate)
   const endDate = assignmentEndDate ? new Date(assignmentEndDate) : null
 
-  if (!step.dueDateType) return null
+  if (!stage.dueDateType) return null
 
-  switch (step.dueDateType) {
+  switch (stage.dueDateType) {
     case "on_interval":
       return startDate
     case "before_interval":
-      if (step.dueDateOffset) {
-        return addWeeks(startDate, -step.dueDateOffset)
+      if (stage.dueDateOffset) {
+        return addWeeks(startDate, -stage.dueDateOffset)
       }
       return startDate
     case "after_interval":
-      if (step.dueDateOffset) {
-        return addWeeks(startDate, step.dueDateOffset)
+      if (stage.dueDateOffset) {
+        return addWeeks(startDate, stage.dueDateOffset)
       }
       return endDate || startDate
     case "custom":
-      if (step.dueDateOffset !== undefined && step.dueDateUnit) {
-        const offset = step.dueDateOffset
-        switch (step.dueDateUnit) {
+      if (stage.dueDateOffset !== undefined && stage.dueDateUnit) {
+        const offset = stage.dueDateOffset
+        switch (stage.dueDateUnit) {
           case "days":
             return addDays(startDate, offset)
           case "weeks":
@@ -154,147 +154,560 @@ const calculateDueDate = (
   }
 }
 
+// Hardcoded tasks for demo users (admin-1, eng-manager-1, eng-1)
+// Based on their workflow assignments from appraisals demo data
+const getHardcodedTasks = (
+  currentEmployeeId: string
+): Task[] => {
+  const tasks: Task[] = []
+  
+  // Static dates for consistency
+  const baseDate = new Date("2024-01-15")
+  const threeMonthsLater = new Date("2024-04-15")
+  
+  // Helper to create a task
+  const createTask = (taskData: {
+    id: string
+    assignmentId: string
+    stepId: string
+    employeeId: string
+    employeeName: string
+    procedureName: string
+    stepName: string
+    stepDescription: string
+    stepType: Task["stepType"]
+    status: Task["status"]
+    dueDate: Date | null
+    completedDate: string | null
+    attendees: string[]
+    evaluationFormId?: string
+    evaluationFormName?: string
+    isRequired?: boolean
+    contextTitle?: string
+    contextSubtitle?: string
+    contextBadge?: string
+  }): Task => ({
+    id: taskData.id,
+    assignmentId: taskData.assignmentId,
+    stepId: taskData.stepId,
+    employeeId: taskData.employeeId,
+    employeeName: taskData.employeeName,
+    procedureName: taskData.procedureName,
+    stepName: taskData.stepName,
+    stepDescription: taskData.stepDescription,
+    stepType: taskData.stepType,
+    status: taskData.status,
+    dueDate: taskData.dueDate,
+    completedDate: taskData.completedDate,
+    attendees: taskData.attendees,
+    evaluationFormId: taskData.evaluationFormId,
+    evaluationFormName: taskData.evaluationFormName,
+    isRequired: taskData.isRequired ?? true,
+    contextTitle: taskData.contextTitle,
+    contextSubtitle: taskData.contextSubtitle,
+    contextBadge: taskData.contextBadge,
+  })
+
+  // ADMIN ROLE (admin-1 - Nimali Perera)
+  if (currentEmployeeId === "admin-1") {
+    // Admin's own tasks from workflow-complete-evaluation
+    const adminAssignmentId = "assignment-admin-1-workflow-complete-evaluation-0"
+    
+    // Task 1: Employee Self-Evaluation (for admin as employee) - COMPLETED
+    tasks.push(createTask({
+      id: `${adminAssignmentId}-stage-employee-self-eval`,
+      assignmentId: adminAssignmentId,
+      stepId: "stage-employee-self-eval",
+      employeeId: "admin-1",
+      employeeName: "Nimali Perera",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Employee Self-Evaluation",
+      stepDescription: "Employee completes a comprehensive self-evaluation form assessing their performance, achievements, skills development, and goals for the review period.",
+      stepType: "evaluation",
+      status: "completed",
+      dueDate: new Date("2024-01-08"), // 1 week before
+      completedDate: "2024-01-07T10:30:00Z",
+      attendees: ["Nimali Perera"],
+      evaluationFormId: "form-employee-self",
+      evaluationFormName: "Employee Self-Evaluation Form",
+      isRequired: true,
+      contextTitle: "Complete Your Self-Evaluation",
+      contextSubtitle: "For: Nimali Perera",
+      contextBadge: "Your Task"
+    }))
+
+    // Task 2: Performance Discussion Meeting (for admin as employee) - COMPLETED
+    tasks.push(createTask({
+      id: `${adminAssignmentId}-stage-evaluation-meeting`,
+      assignmentId: adminAssignmentId,
+      stepId: "stage-evaluation-meeting",
+      employeeId: "admin-1",
+      employeeName: "Nimali Perera",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Performance Discussion Meeting",
+      stepDescription: "One-on-one meeting between employee and their direct manager to discuss the self-evaluation, performance, feedback, goals, and development opportunities.",
+      stepType: "meeting",
+      status: "completed",
+      dueDate: baseDate,
+      completedDate: "2024-01-15T14:00:00Z",
+      attendees: ["Nimali Perera", "Manager Level 1"],
+      contextTitle: "Attend Performance Discussion",
+      contextSubtitle: "For: Nimali Perera",
+      contextBadge: "Your Task"
+    }))
+
+    // Manager tasks for eng-1 (Kavindu Silva)
+    const eng1AssignmentId = "assignment-eng-1-workflow-complete-evaluation-0"
+    
+    // Task 3: Manager Evaluation for eng-1 (admin as level 2 manager)
+    tasks.push(createTask({
+      id: `${eng1AssignmentId}-stage-manager-evaluation`,
+      assignmentId: eng1AssignmentId,
+      stepId: "stage-manager-evaluation",
+      employeeId: "eng-1",
+      employeeName: "Kavindu Silva",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Manager Evaluation",
+      stepDescription: "Direct manager completes a comprehensive evaluation form rating the employee's performance across multiple criteria, providing feedback, and making recommendations.",
+      stepType: "evaluation",
+      status: "pending",
+      dueDate: new Date("2024-01-22"), // 1 week after meeting
+      completedDate: null,
+      attendees: ["Manager Level 1 (Rajitha Wickramasinghe)"],
+      evaluationFormId: "form-manager-evaluation",
+      evaluationFormName: "Manager Evaluation Form",
+      contextTitle: "Evaluate: Kavindu Silva",
+      contextSubtitle: "Semi-Annual Performance Appraisal",
+      contextBadge: "Manager Task"
+    }))
+
+    // Task 4: Senior Manager Approval for eng-1 (admin as level 2 manager)
+    tasks.push(createTask({
+      id: `${eng1AssignmentId}-stage-senior-approval`,
+      assignmentId: eng1AssignmentId,
+      stepId: "stage-senior-approval",
+      employeeId: "eng-1",
+      employeeName: "Kavindu Silva",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Senior Manager Approval",
+      stepDescription: "Senior manager (Level 2) reviews the complete appraisal including employee self-evaluation and manager evaluation, then approves or provides feedback on ratings, recommendations, and compensation decisions.",
+      stepType: "approval",
+      status: "pending",
+      dueDate: new Date("2024-01-29"), // 2 weeks after meeting
+      completedDate: null,
+      attendees: ["Manager Level 2 (Nimali Perera)"],
+      evaluationFormId: "form-approval",
+      evaluationFormName: "Approval Form",
+      contextTitle: "Approve: Kavindu Silva",
+      contextSubtitle: "Semi-Annual Performance Appraisal",
+      contextBadge: "Approval Task"
+    }))
+  }
+
+  // MANAGER ROLE (eng-manager-1 - Rajitha Wickramasinghe)
+  if (currentEmployeeId === "eng-manager-1") {
+    // Manager's own tasks from workflow-simple-meeting
+    const simpleMeetingAssignmentId = "assignment-eng-manager-1-workflow-simple-meeting-0"
+    
+    // Task 1: Evaluation Meeting (from simple meeting procedure) - COMPLETED
+    tasks.push(createTask({
+      id: `${simpleMeetingAssignmentId}-stage-meeting-only`,
+      assignmentId: simpleMeetingAssignmentId,
+      stepId: "stage-meeting-only",
+      employeeId: "eng-manager-1",
+      employeeName: "Rajitha Wickramasinghe",
+      procedureName: "Quarterly Evaluation Meeting",
+      stepName: "Evaluation Meeting with Manager",
+      stepDescription: "Direct one-on-one evaluation meeting between employee and their manager to discuss performance, achievements, challenges, and goals. Manager will document the meeting notes.",
+      stepType: "meeting",
+      status: "completed",
+      dueDate: threeMonthsLater,
+      completedDate: "2024-04-15T11:00:00Z",
+      attendees: ["Rajitha Wickramasinghe", "Manager Level 1 (Nimali Perera)"],
+      evaluationFormId: "form-meeting-notes",
+      evaluationFormName: "Meeting Notes Form",
+      contextTitle: "Attend Evaluation Meeting",
+      contextSubtitle: "For: Rajitha Wickramasinghe",
+      contextBadge: "Your Task"
+    }))
+
+    // Manager's own tasks from workflow-complete-evaluation
+    const managerAssignmentId = "assignment-eng-manager-1-workflow-complete-evaluation-0"
+    
+    // Task 2: Employee Self-Evaluation (for manager as employee) - COMPLETED
+    tasks.push(createTask({
+      id: `${managerAssignmentId}-stage-employee-self-eval`,
+      assignmentId: managerAssignmentId,
+      stepId: "stage-employee-self-eval",
+      employeeId: "eng-manager-1",
+      employeeName: "Rajitha Wickramasinghe",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Employee Self-Evaluation",
+      stepDescription: "Employee completes a comprehensive self-evaluation form assessing their performance, achievements, skills development, and goals for the review period.",
+      stepType: "evaluation",
+      status: "completed",
+      dueDate: new Date("2024-01-08"),
+      completedDate: "2024-01-07T09:15:00Z",
+      attendees: ["Rajitha Wickramasinghe"],
+      evaluationFormId: "form-employee-self",
+      evaluationFormName: "Employee Self-Evaluation Form",
+      contextTitle: "Complete Your Self-Evaluation",
+      contextSubtitle: "For: Rajitha Wickramasinghe",
+      contextBadge: "Your Task"
+    }))
+
+    // Task 3: Performance Discussion Meeting (for manager as employee)
+    tasks.push(createTask({
+      id: `${managerAssignmentId}-stage-evaluation-meeting`,
+      assignmentId: managerAssignmentId,
+      stepId: "stage-evaluation-meeting",
+      employeeId: "eng-manager-1",
+      employeeName: "Rajitha Wickramasinghe",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Performance Discussion Meeting",
+      stepDescription: "One-on-one meeting between employee and their direct manager to discuss the self-evaluation, performance, feedback, goals, and development opportunities.",
+      stepType: "meeting",
+      status: "pending",
+      dueDate: baseDate,
+      completedDate: null,
+      attendees: ["Rajitha Wickramasinghe", "Manager Level 1 (Nimali Perera)"],
+      contextTitle: "Attend Performance Discussion",
+      contextSubtitle: "For: Rajitha Wickramasinghe",
+      contextBadge: "Your Task"
+    }))
+
+    // Manager tasks for eng-1 (Kavindu Silva)
+    const eng1AssignmentId = "assignment-eng-1-workflow-complete-evaluation-0"
+    
+    // Task 4: Performance Discussion Meeting for eng-1 (manager as level 1)
+    tasks.push(createTask({
+      id: `${eng1AssignmentId}-stage-evaluation-meeting`,
+      assignmentId: eng1AssignmentId,
+      stepId: "stage-evaluation-meeting",
+      employeeId: "eng-1",
+      employeeName: "Kavindu Silva",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Performance Discussion Meeting",
+      stepDescription: "One-on-one meeting between employee and their direct manager to discuss the self-evaluation, performance, feedback, goals, and development opportunities.",
+      stepType: "meeting",
+      status: "pending",
+      dueDate: baseDate,
+      completedDate: null,
+      attendees: ["Kavindu Silva", "Manager Level 1 (Rajitha Wickramasinghe)"],
+      contextTitle: "Conduct Meeting: Kavindu Silva",
+      contextSubtitle: "Semi-Annual Performance Appraisal",
+      contextBadge: "Manager Task"
+    }))
+
+    // Task 5: Manager Evaluation for eng-1 (manager as level 1) - COMPLETED
+    tasks.push(createTask({
+      id: `${eng1AssignmentId}-stage-manager-evaluation`,
+      assignmentId: eng1AssignmentId,
+      stepId: "stage-manager-evaluation",
+      employeeId: "eng-1",
+      employeeName: "Kavindu Silva",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Manager Evaluation",
+      stepDescription: "Direct manager completes a comprehensive evaluation form rating the employee's performance across multiple criteria, providing feedback, and making recommendations.",
+      stepType: "evaluation",
+      status: "completed",
+      dueDate: new Date("2024-01-22"),
+      completedDate: "2024-01-21T16:45:00Z",
+      attendees: ["Manager Level 1 (Rajitha Wickramasinghe)"],
+      evaluationFormId: "form-manager-evaluation",
+      evaluationFormName: "Manager Evaluation Form",
+      contextTitle: "Evaluate: Kavindu Silva",
+      contextSubtitle: "Semi-Annual Performance Appraisal",
+      contextBadge: "Manager Task"
+    }))
+  }
+
+  // EMPLOYEE ROLE (eng-1 - Kavindu Silva)
+  if (currentEmployeeId === "eng-1") {
+    const eng1AssignmentId = "assignment-eng-1-workflow-complete-evaluation-0"
+    
+    // Task 1: Employee Self-Evaluation - COMPLETED
+    tasks.push(createTask({
+      id: `${eng1AssignmentId}-stage-employee-self-eval`,
+      assignmentId: eng1AssignmentId,
+      stepId: "stage-employee-self-eval",
+      employeeId: "eng-1",
+      employeeName: "Kavindu Silva",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Employee Self-Evaluation",
+      stepDescription: "Employee completes a comprehensive self-evaluation form assessing their performance, achievements, skills development, and goals for the review period.",
+      stepType: "evaluation",
+      status: "completed",
+      dueDate: new Date("2024-01-08"),
+      completedDate: "2024-01-06T13:20:00Z",
+      attendees: ["Kavindu Silva"],
+      evaluationFormId: "form-employee-self",
+      evaluationFormName: "Employee Self-Evaluation Form",
+      contextTitle: "Complete Your Self-Evaluation",
+      contextSubtitle: "For: Kavindu Silva",
+      contextBadge: "Your Task"
+    }))
+
+    // Task 2: Performance Discussion Meeting
+    tasks.push(createTask({
+      id: `${eng1AssignmentId}-stage-evaluation-meeting`,
+      assignmentId: eng1AssignmentId,
+      stepId: "stage-evaluation-meeting",
+      employeeId: "eng-1",
+      employeeName: "Kavindu Silva",
+      procedureName: "Semi-Annual Performance Appraisal",
+      stepName: "Performance Discussion Meeting",
+      stepDescription: "One-on-one meeting between employee and their direct manager to discuss the self-evaluation, performance, feedback, goals, and development opportunities.",
+      stepType: "meeting",
+      status: "pending",
+      dueDate: baseDate,
+      completedDate: null,
+      attendees: ["Kavindu Silva", "Manager Level 1 (Rajitha Wickramasinghe)"],
+      contextTitle: "Attend Performance Discussion",
+      contextSubtitle: "For: Kavindu Silva",
+      contextBadge: "Your Task"
+    }))
+  }
+
+  // Sort tasks by status priority, then due date, then ID for consistent order
+  return tasks.sort((a, b) => {
+    const statusPriority = { "pending": 0, "in_progress": 1, "overdue": 2, "completed": 3, "cancelled": 4 }
+    const statusDiff = (statusPriority[a.status] || 5) - (statusPriority[b.status] || 5)
+    if (statusDiff !== 0) return statusDiff
+    
+    if (a.dueDate && b.dueDate) {
+      const dateDiff = a.dueDate.getTime() - b.dueDate.getTime()
+      if (dateDiff !== 0) return dateDiff
+    } else if (a.dueDate) return -1
+    else if (b.dueDate) return 1
+    
+    return a.id.localeCompare(b.id)
+  })
+}
+
 // Convert workflow assignments to tasks (for current employee and employees they manage)
+// NOTE: This function is kept for backward compatibility but hardcoded tasks are used for demo users
 const convertAssignmentsToTasks = (
   assignments: WorkflowAssignment[],
   currentEmployeeId: string,
-  currentUserName: string
+  currentUserName: string,
+  currentRole: "admin" | "employee" | "manager"
 ): Task[] => {
+  // Use hardcoded tasks for demo users (admin-1, eng-manager-1, eng-1)
+  if (currentEmployeeId === "admin-1" || currentEmployeeId === "eng-manager-1" || currentEmployeeId === "eng-1") {
+    return getHardcodedTasks(currentEmployeeId)
+  }
+
   const tasks: Task[] = []
   const now = new Date()
 
-  assignments.forEach((assignment) => {
+  // Sort assignments by a stable key (ID) to ensure consistent order
+  const sortedAssignments = [...assignments].sort((a, b) => a.id.localeCompare(b.id))
+
+  sortedAssignments.forEach((assignment) => {
     const template = getWorkflowTemplate(assignment.workflowTemplateId)
     const employee = getEmployee(assignment.employeeId)
 
     if (!template || !employee) return
 
-    // Check if this assignment is relevant to the current user:
-    // 1. Current user is the employee (their own tasks)
-    // 2. Current user is a manager for this employee and is involved in the step
-    const isCurrentUserEmployee = assignment.employeeId === currentEmployeeId
-    
-    // Check if current user manages this employee
-    const currentUserManagesEmployee = employee.managers?.some(
-      (m) => m.employeeId === currentEmployeeId
-    )
+    // Helper function to create task from stage
+    const createTaskFromStage = (stage: ReviewStage, skipCompletionCheck: boolean = false): void => {
+      // Skip stages that don't exist in stageCompletions (they were filtered out during initialization)
+      // Exception: Admin can see all stages, so skip this check for admin
+      if (!skipCompletionCheck && !(stage.id in assignment.stageCompletions)) return
 
-    // Only show tasks for steps that exist in stepCompletions
-    // (steps are already filtered during workflow initialization based on employee role)
-    template.steps.forEach((step) => {
-      // Skip steps that don't exist in stepCompletions (they were filtered out during initialization)
-      if (!(step.id in assignment.stepCompletions)) return
-      
-      // Check if current user is involved in this step
-      let isCurrentUserInvolved = false
-      
-      if (isCurrentUserEmployee) {
-        // Current user is the employee - show if step involves employee
-        isCurrentUserInvolved = step.attendees?.includes("employee") || false
-      } else if (currentUserManagesEmployee && step.attendees) {
-        // Current user is a manager - check if they're involved in this step
-        step.attendees.forEach((attendee) => {
-          if (attendee.startsWith("manager_level_")) {
+      // Get context information
+      const context = getTaskContext(employee, currentEmployeeId, currentUserName, stage, template.name)
+      const contextDisplay = formatTaskContextDisplay(context)
+      const completion = assignment.stageCompletions[stage.id]
+      const isCompleted = completion?.completed || false
+      const dueDate = calculateDueDate(
+        stage,
+        assignment.startDate,
+        assignment.endDate
+      )
+
+      // Determine task status
+      let status: Task["status"] = "pending"
+      if (assignment.status === "cancelled") {
+        status = "cancelled"
+      } else if (isCompleted) {
+        status = "completed"
+      } else if (dueDate && isBefore(dueDate, now) && !isCompleted) {
+        status = "overdue"
+      } else if (assignment.currentStageId === stage.id) {
+        status = "in_progress"
+      }
+
+      // Get evaluation form name if exists
+      const form = stage.evaluationFormId
+        ? getEvaluationForm(stage.evaluationFormId)
+        : null
+
+      // Format attendees
+      const attendees: string[] = []
+      if (stage.attendees) {
+        stage.attendees.forEach((attendee) => {
+          if (attendee === "employee") {
+            attendees.push(`${employee.firstName} ${employee.lastName}`)
+          } else {
             const levelMatch = attendee.match(/manager_level_(\d+)/)
             if (levelMatch && employee.managers) {
               const level = Number.parseInt(levelMatch[1], 10)
               const manager = employee.managers.find((m) => m.level === level)
-              if (manager?.employeeId === currentEmployeeId) {
-                isCurrentUserInvolved = true
+              if (manager) {
+                if (manager.isExternal && manager.externalName) {
+                  attendees.push(
+                    `Manager L${level} (${manager.externalName})`
+                  )
+                } else if (manager.employeeId) {
+                  const managerEmp = getEmployee(manager.employeeId)
+                  if (managerEmp) {
+                    attendees.push(
+                      `Manager L${level} (${managerEmp.firstName} ${managerEmp.lastName})`
+                    )
+                  }
+                }
               }
             }
           }
         })
       }
+
+      const task: Task = {
+        id: `${assignment.id}-${stage.id}`,
+        assignmentId: assignment.id,
+        stepId: stage.id,
+        employeeId: employee.id,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        procedureName: template.name,
+        stepName: stage.name,
+        stepDescription: stage.description || "",
+        stepType: stage.type,
+        status,
+        dueDate,
+        completedDate: completion?.completedDate || null,
+        attendees,
+        evaluationFormId: stage.evaluationFormId,
+        evaluationFormName: form?.name,
+        isRequired: stage.required,
+        formData: completion?.formData,
+        // Add context information
+        contextTitle: contextDisplay.title,
+        contextSubtitle: contextDisplay.subtitle,
+        contextBadge: contextDisplay.badge,
+      }
+
+      tasks.push(task)
+    }
+
+    // ADMIN ROLE: Only show tasks where admin is involved (as employee or manager)
+    if (currentRole === "admin") {
+      // Check if admin is the employee for this assignment
+      const isAdminEmployee = assignment.employeeId === currentEmployeeId
       
-      // Skip if current user is not involved in this step
-      if (!isCurrentUserInvolved) return
-      
-      // Get context information
-      const context = getTaskContext(employee, currentEmployeeId, currentUserName, step, template.name)
-      const contextDisplay = formatTaskContextDisplay(context)
-      const completion = assignment.stepCompletions[step.id]
-        const isCompleted = completion?.completed || false
-        const dueDate = calculateDueDate(
-          step,
-          assignment.startDate,
-          assignment.endDate
-        )
+      // Check if admin manages this employee
+      const adminManagesEmployee = employee.managers?.some(
+        (m) => m.employeeId === currentEmployeeId
+      )
 
-        // Determine task status
-        let status: Task["status"] = "pending"
-        if (assignment.status === "cancelled") {
-          status = "cancelled"
-        } else if (isCompleted) {
-          status = "completed"
-        } else if (dueDate && isBefore(dueDate, now) && !isCompleted) {
-          status = "overdue"
-        } else if (assignment.currentStepId === step.id) {
-          status = "in_progress"
-        }
+      // Skip if admin is not involved in this assignment
+      if (!isAdminEmployee && !adminManagesEmployee) return
 
-        // Get evaluation form name if exists
-        const form = step.evaluationFormId
-          ? getEvaluationForm(step.evaluationFormId)
-          : null
-
-        // Format attendees
-        const attendees: string[] = []
-        if (step.attendees) {
-          step.attendees.forEach((attendee) => {
-            if (attendee === "employee") {
-              attendees.push(`${employee.firstName} ${employee.lastName}`)
-            } else {
+      // Sort stages by order to ensure consistent processing order
+      const sortedStages = [...template.stages].sort((a, b) => a.order - b.order)
+      sortedStages.forEach((stage) => {
+        // Skip stages that don't exist in stageCompletions (they were filtered out during initialization)
+        if (!(stage.id in assignment.stageCompletions)) return
+        
+        // Check if admin is involved in this stage
+        let isAdminInvolved = false
+        
+        if (isAdminEmployee) {
+          // Admin is the employee - show if stage involves employee
+          isAdminInvolved = stage.attendees?.includes("employee") || false
+        } else if (adminManagesEmployee && stage.attendees) {
+          // Admin is a manager - check if they're involved in this stage
+          stage.attendees.forEach((attendee) => {
+            if (attendee.startsWith("manager_level_")) {
               const levelMatch = attendee.match(/manager_level_(\d+)/)
               if (levelMatch && employee.managers) {
                 const level = Number.parseInt(levelMatch[1], 10)
                 const manager = employee.managers.find((m) => m.level === level)
-                if (manager) {
-                  if (manager.isExternal && manager.externalName) {
-                    attendees.push(
-                      `Manager L${level} (${manager.externalName})`
-                    )
-                  } else if (manager.employeeId) {
-                    const managerEmp = getEmployee(manager.employeeId)
-                    if (managerEmp) {
-                      attendees.push(
-                        `Manager L${level} (${managerEmp.firstName} ${managerEmp.lastName})`
-                      )
-                    }
-                  }
+                if (manager?.employeeId === currentEmployeeId) {
+                  isAdminInvolved = true
                 }
               }
             }
           })
         }
-
-        const task: Task = {
-          id: `${assignment.id}-${step.id}`,
-          assignmentId: assignment.id,
-          stepId: step.id,
-          employeeId: employee.id,
-          employeeName: `${employee.firstName} ${employee.lastName}`,
-          procedureName: template.name,
-          stepName: step.name,
-          stepDescription: step.description || "",
-          stepType: step.type,
-          status,
-          dueDate,
-          completedDate: completion?.completedDate || null,
-          attendees,
-          evaluationFormId: step.evaluationFormId,
-          evaluationFormName: form?.name,
-          isRequired: step.required,
-          formData: completion?.formData,
-          // Add context information
-          contextTitle: contextDisplay.title,
-          contextSubtitle: contextDisplay.subtitle,
-          contextBadge: contextDisplay.badge,
-        }
-
-        tasks.push(task)
+        
+        // Skip if admin is not involved in this stage
+        if (!isAdminInvolved) return
+        
+        createTaskFromStage(stage)
       })
-    })
+      return // Continue to next assignment
+    }
+
+    // EMPLOYEE ROLE: Only show tasks where current user is the employee
+    if (currentRole === "employee") {
+      // Only process if this assignment belongs to the current employee
+      if (assignment.employeeId !== currentEmployeeId) return
+
+      // Sort stages by order to ensure consistent processing order
+      const sortedStages = [...template.stages].sort((a, b) => a.order - b.order)
+      sortedStages.forEach((stage) => {
+        // Employee only sees stages where they are an attendee
+        const isCurrentUserInvolved = stage.attendees?.includes("employee") || false
+        if (!isCurrentUserInvolved) return
+        
+        createTaskFromStage(stage)
+      })
+      return // Continue to next assignment
+    }
+
+    // MANAGER ROLE: Only show tasks for employees they manage
+    if (currentRole === "manager") {
+      // Check if current user manages this employee
+      const currentUserManagesEmployee = employee.managers?.some(
+        (m) => m.employeeId === currentEmployeeId
+      )
+
+      // Skip if current user doesn't manage this employee
+      if (!currentUserManagesEmployee) return
+
+      // Sort stages by order to ensure consistent processing order
+      const sortedStages = [...template.stages].sort((a, b) => a.order - b.order)
+      sortedStages.forEach((stage) => {
+        // Check if current user (manager) is involved in this stage
+        let isCurrentUserInvolved = false
+        
+        if (stage.attendees) {
+          stage.attendees.forEach((attendee) => {
+            if (attendee.startsWith("manager_level_")) {
+              const levelMatch = attendee.match(/manager_level_(\d+)/)
+              if (levelMatch && employee.managers) {
+                const level = Number.parseInt(levelMatch[1], 10)
+                const manager = employee.managers.find((m) => m.level === level)
+                if (manager?.employeeId === currentEmployeeId) {
+                  isCurrentUserInvolved = true
+                }
+              }
+            }
+          })
+        }
+        
+        // Skip if current user is not involved in this stage
+        if (!isCurrentUserInvolved) return
+        
+        // For managers, skip the stageCompletions check (like admin) so they can see
+        // approval stages and other stages even if they're not in stageCompletions yet
+        createTaskFromStage(stage, true)
+      })
+      return // Continue to next assignment
+    }
+  })
 
   return tasks
 }
@@ -542,7 +955,7 @@ function DraggableTaskCard({
 }
 
 export default function TasksPage() {
-  const { currentUserId, currentUserName } = useRole()
+  const { currentUserId, currentUserName, currentRole } = useRole()
 
   const [assignments, setAssignments] = React.useState<WorkflowAssignment[]>([])
   const [tasks, setTasks] = React.useState<Task[]>([])
@@ -554,6 +967,7 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null)
   const [isMounted, setIsMounted] = React.useState(false)
   const [activeTask, setActiveTask] = React.useState<Task | null>(null)
+  const isUpdatingFromDrag = React.useRef(false)
 
   // DnD Sensors
   const sensors = useSensors(
@@ -574,13 +988,40 @@ export default function TasksPage() {
 
   // Convert assignments to tasks (for current user and employees they manage)
   React.useEffect(() => {
+    // Skip regeneration if we're updating from drag-and-drop to preserve order
+    if (isUpdatingFromDrag.current) {
+      isUpdatingFromDrag.current = false
+      return
+    }
+    
     const convertedTasks = convertAssignmentsToTasks(
       assignments,
       currentUserId,
-      currentUserName
+      currentUserName,
+      currentRole
     )
-    setTasks(convertedTasks)
-  }, [assignments, currentUserId, currentUserName])
+    // Sort tasks by a stable key to maintain consistent order:
+    // 1. Status (pending/in_progress first, then completed)
+    // 2. Due date (earliest first, nulls last)
+    // 3. Task ID (for consistent ordering)
+    const sortedTasks = [...convertedTasks].sort((a, b) => {
+      // First sort by status priority
+      const statusPriority = { "pending": 0, "in_progress": 1, "overdue": 2, "completed": 3, "cancelled": 4 }
+      const statusDiff = (statusPriority[a.status] || 5) - (statusPriority[b.status] || 5)
+      if (statusDiff !== 0) return statusDiff
+      
+      // Then by due date (earliest first)
+      if (a.dueDate && b.dueDate) {
+        const dateDiff = a.dueDate.getTime() - b.dueDate.getTime()
+        if (dateDiff !== 0) return dateDiff
+      } else if (a.dueDate) return -1
+      else if (b.dueDate) return 1
+      
+      // Finally by task ID for stable ordering
+      return a.id.localeCompare(b.id)
+    })
+    setTasks(sortedTasks)
+  }, [assignments, currentUserId, currentUserName, currentRole])
 
   // Filter tasks
   const filteredTasks = React.useMemo(() => {
@@ -655,6 +1096,9 @@ export default function TasksPage() {
 
       // Only update if status actually changed
       if (draggedTask.status !== newStatus) {
+        // Set flag to prevent task regeneration
+        isUpdatingFromDrag.current = true
+        
         // Update task status
         const updatedTasks = tasks.map((task) => {
           if (task.id === activeId) {
@@ -675,27 +1119,27 @@ export default function TasksPage() {
         setAssignments((prevAssignments) => {
           return prevAssignments.map((assignment) => {
             if (assignment.id === draggedTask.assignmentId) {
-              const updatedStepCompletions = {
-                ...assignment.stepCompletions,
+              const updatedStageCompletions = {
+                ...assignment.stageCompletions,
                 [draggedTask.stepId]: {
-                  ...assignment.stepCompletions[draggedTask.stepId],
+                  ...assignment.stageCompletions[draggedTask.stepId],
                   completed: newStatus === "completed",
                   completedDate:
                     newStatus === "completed"
                       ? new Date().toISOString()
-                      : assignment.stepCompletions[draggedTask.stepId]
+                      : assignment.stageCompletions[draggedTask.stepId]
                           ?.completedDate,
                   completedBy:
                     newStatus === "completed"
                       ? currentUserId
-                      : assignment.stepCompletions[draggedTask.stepId]
+                      : assignment.stageCompletions[draggedTask.stepId]
                           ?.completedBy,
                 },
               }
 
               return {
                 ...assignment,
-                stepCompletions: updatedStepCompletions,
+                stageCompletions: updatedStageCompletions,
                 updatedAt: new Date().toISOString(),
               }
             }
@@ -1071,6 +1515,26 @@ export default function TasksPage() {
                   <CardTitle>Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* View in Appraisals Link - Always show this */}
+                  <div className="pb-3 border-b">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        // Navigate to appraisals page and open the corresponding appraisal
+                        // The assignmentId is the workflowAssignmentId used in appraisals
+                        window.location.href = `/appraisals?assignmentId=${selectedTask.assignmentId}&stepId=${selectedTask.stepId}`
+                      }}
+                    >
+                      <IconFileText className="size-4 mr-2" />
+                      View in Appraisals & Review Steps
+                      <IconExternalLink className="size-4 ml-2" />
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      View this task in the context of the full appraisal review process
+                    </p>
+                  </div>
+                  
                   {/* Evaluation Task Actions */}
                   {selectedTask.stepType === "evaluation" && (
                     <div className="space-y-3">

@@ -88,7 +88,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   type WorkflowTemplate,
-  type WorkflowStep,
+  type ReviewStage,
   type FrequencyType,
 } from "@/lib/types"
 import {
@@ -181,7 +181,7 @@ export default function ProceduresPage() {
     description: "",
     applicablePositions: [],
     applicableDepartments: [],
-    steps: [],
+    stages: [],
     meetingFrequencies: [],
     interval: {
       type: "quarterly",
@@ -196,7 +196,7 @@ export default function ProceduresPage() {
     isActive: true,
   })
 
-  const [currentStep, setCurrentStep] = React.useState<Partial<WorkflowStep>>({
+  const [currentStep, setCurrentStep] = React.useState<Partial<ReviewStage>>({
     name: "",
     description: "",
     type: "evaluation",
@@ -279,7 +279,7 @@ export default function ProceduresPage() {
       description: template.description,
       applicablePositions: template.applicablePositions,
       applicableDepartments: template.applicableDepartments,
-      steps: template.steps,
+      stages: template.stages,
       meetingFrequencies: template.meetingFrequencies,
       interval: template.interval,
       managerLevels: template.managerLevels || [1, 2, 3],
@@ -320,7 +320,7 @@ export default function ProceduresPage() {
   // Add step
   const addStep = () => {
     if (!currentStep.name) {
-      toast.error("Please enter a step name")
+      toast.error("Please enter a stage name")
       return
     }
 
@@ -329,11 +329,11 @@ export default function ProceduresPage() {
       return
     }
 
-    const newStep: WorkflowStep = {
-      id: `step-${Date.now()}`,
+    const newStep: ReviewStage = {
+      id: `stage-${Date.now()}`,
       name: currentStep.name || "",
       description: currentStep.description || "",
-      order: (formData.steps?.length || 0) + 1,
+      order: (formData.stages?.length || 0) + 1,
       type: currentStep.type || "evaluation",
       evaluationFormId: currentStep.evaluationFormId,
       managerLevel: currentStep.managerLevel, // Keep for backward compatibility
@@ -351,7 +351,7 @@ export default function ProceduresPage() {
 
     setFormData((prev) => ({
       ...prev,
-      steps: [...(prev.steps || []), newStep],
+      stages: [...(prev.stages || []), newStep],
     }))
 
     setCurrentStep({
@@ -368,14 +368,14 @@ export default function ProceduresPage() {
         channels: ["email", "in-app"],
       },
     })
-    toast.success("Step added successfully!")
+    toast.success("Review stage added successfully!")
   }
 
   // Remove step
   const removeStep = (stepId: string) => {
     setFormData((prev) => ({
       ...prev,
-      steps: prev.steps?.filter((s) => s.id !== stepId).map((s, index) => ({ ...s, order: index + 1 })) || [],
+      stages: prev.stages?.filter((s) => s.id !== stepId).map((s, index) => ({ ...s, order: index + 1 })) || [],
     }))
   }
 
@@ -395,7 +395,7 @@ export default function ProceduresPage() {
       description: formData.description || "",
       applicablePositions: formData.applicablePositions || [],
       applicableDepartments: formData.applicableDepartments || [],
-      steps: formData.steps || [],
+      stages: formData.stages || [],
       meetingFrequencies: formData.meetingFrequencies || [],
       interval: formData.interval || { type: "quarterly" },
       managerLevels: formData.managerLevels || [1, 2, 3],
@@ -431,7 +431,7 @@ export default function ProceduresPage() {
       description: "",
       applicablePositions: [],
       applicableDepartments: [],
-      steps: [],
+      stages: [],
       meetingFrequencies: [],
       interval: {
         type: "quarterly",
@@ -480,10 +480,10 @@ export default function ProceduresPage() {
         ),
       },
       {
-        accessorKey: "steps",
-        header: "Steps",
+        accessorKey: "stages",
+        header: "Review Stages",
         cell: ({ row }) => (
-          <span className="text-sm">{row.original.steps.length} steps</span>
+          <span className="text-sm">{row.original.stages.length} {row.original.stages.length === 1 ? "stage" : "stages"}</span>
         ),
       },
       {
@@ -909,24 +909,24 @@ export default function ProceduresPage() {
                       Add Manager Level
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      Add or remove manager levels. These will appear as attendee options when creating steps.
+                      Add or remove manager levels. These will appear as attendee options when creating review stages.
                     </p>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Procedure Steps */}
+              {/* Review Stages */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Procedure Steps</CardTitle>
+                  <CardTitle>Review Stages</CardTitle>
                   <CardDescription>
-                    Define the steps in this procedure (evaluations, meetings, reviews, etc.)
+                    Define the review stages in this procedure (evaluations, meetings, reviews, etc.)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Add Step Form */}
+                  {/* Add Review Stage Form */}
                   <div className="border rounded-lg p-4 space-y-4">
-                    <h4 className="font-medium">Add New Step</h4>
+                    <h4 className="font-medium">Add New Review Stage</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Step Name *</Label>
@@ -941,7 +941,7 @@ export default function ProceduresPage() {
                         <Label>Step Type *</Label>
                         <Select
                           value={currentStep.type}
-                          onValueChange={(value: WorkflowStep["type"]) =>
+                          onValueChange={(value: ReviewStage["type"]) =>
                             setCurrentStep((prev) => ({ ...prev, type: value }))
                           }
                         >
@@ -962,7 +962,7 @@ export default function ProceduresPage() {
                       <Textarea
                         value={currentStep.description}
                         onChange={(e) => setCurrentStep((prev) => ({ ...prev, description: e.target.value }))}
-                        placeholder="Step description..."
+                        placeholder="Review stage description..."
                         rows={2}
                         className="w-full"
                       />
@@ -1223,23 +1223,23 @@ export default function ProceduresPage() {
                     </Button>
                   </div>
 
-                  {/* Steps List */}
-                  {formData.steps && formData.steps.length > 0 && (
+                  {/* Review Stages List */}
+                  {formData.stages && formData.stages.length > 0 && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-base">Procedure Steps</h4>
+                        <h4 className="font-semibold text-base">Review Stages</h4>
                         <Badge variant="secondary" className="text-xs">
-                          {formData.steps.length} {formData.steps.length === 1 ? "step" : "steps"}
+                          {formData.stages.length} {formData.stages.length === 1 ? "stage" : "stages"}
                         </Badge>
                       </div>
                       
-                      {/* Vertical Steps Progress Layout */}
+                      {/* Vertical Stages Progress Layout */}
                       <div className="relative">
                         {/* Vertical connecting line */}
                         <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-border" />
                         
                         <div className="space-y-6">
-                          {formData.steps
+                          {formData.stages
                             .sort((a, b) => a.order - b.order)
                             .map((step) => {
                             // Get step type icon
@@ -1635,15 +1635,15 @@ export default function ProceduresPage() {
         </div>
       </div>
 
-      {/* View Procedure Steps Sheet */}
+      {/* View Review Stages Sheet */}
       <Sheet open={viewSheetOpen} onOpenChange={setViewSheetOpen}>
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-4">
           <SheetHeader>
             <SheetTitle>
-              {selectedTemplateForView?.name || "Procedure Steps"}
+              {selectedTemplateForView?.name || "Review Stages"}
             </SheetTitle>
             <SheetDescription>
-              {selectedTemplateForView?.description || "View all steps in this procedure"}
+              {selectedTemplateForView?.description || "View all review stages in this procedure"}
             </SheetDescription>
           </SheetHeader>
 
@@ -1669,12 +1669,12 @@ export default function ProceduresPage() {
               </div>
 
               {/* Steps List */}
-              {selectedTemplateForView.steps && selectedTemplateForView.steps.length > 0 ? (
+              {selectedTemplateForView.stages && selectedTemplateForView.stages.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-base">Procedure Steps</h4>
+                    <h4 className="font-semibold text-base">Review Stages</h4>
                     <Badge variant="secondary" className="text-xs">
-                      {selectedTemplateForView.steps.length} {selectedTemplateForView.steps.length === 1 ? "step" : "steps"}
+                      {selectedTemplateForView.stages.length} {selectedTemplateForView.stages.length === 1 ? "stage" : "stages"}
                     </Badge>
                   </div>
                   
@@ -1684,7 +1684,7 @@ export default function ProceduresPage() {
                     <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-border" />
                     
                     <div className="space-y-6">
-                      {selectedTemplateForView.steps
+                      {selectedTemplateForView.stages
                         .sort((a, b) => a.order - b.order)
                         .map((step) => {
                         // Get step type icon

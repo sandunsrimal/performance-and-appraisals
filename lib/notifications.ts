@@ -5,7 +5,7 @@ import type {
   WorkflowTemplate,
   WorkflowMeeting,
   NotificationSettings,
-  WorkflowStep,
+  ReviewStage,
 } from "./types"
 import { getWorkflowTemplate, getEmployee } from "./workflow-data"
 
@@ -26,27 +26,27 @@ export type Notification = {
   createdAt: string
 }
 
-// Calculate step due date based on dueDateType and dueDateOffset
-function calculateStepDueDate(step: WorkflowStep, startDate: Date, endDate?: Date): Date | null {
-  if (!step.dueDateType) return null
+// Calculate stage due date based on dueDateType and dueDateOffset
+function calculateStepDueDate(stage: ReviewStage, startDate: Date, endDate?: Date): Date | null {
+  if (!stage.dueDateType) return null
 
-  switch (step.dueDateType) {
+  switch (stage.dueDateType) {
     case "on_interval":
       return startDate
     case "before_interval":
-      if (step.dueDateOffset !== undefined) {
-        return addWeeks(startDate, -step.dueDateOffset)
+      if (stage.dueDateOffset !== undefined) {
+        return addWeeks(startDate, -stage.dueDateOffset)
       }
       return startDate
     case "after_interval":
-      if (step.dueDateOffset !== undefined) {
-        return addWeeks(startDate, step.dueDateOffset)
+      if (stage.dueDateOffset !== undefined) {
+        return addWeeks(startDate, stage.dueDateOffset)
       }
       return endDate || startDate
     case "custom":
-      if (step.dueDateOffset !== undefined && step.dueDateUnit) {
-        const offset = step.dueDateOffset
-        switch (step.dueDateUnit) {
+      if (stage.dueDateOffset !== undefined && stage.dueDateUnit) {
+        const offset = stage.dueDateOffset
+        switch (stage.dueDateUnit) {
           case "days":
             return addDays(startDate, offset)
           case "weeks":
@@ -115,22 +115,22 @@ export function generateNotificationsForAssignment(
 
   const startDate = new Date(assignment.startDate)
 
-  // Generate notifications for each step
-  template.steps.forEach((step) => {
-    const dueDate = calculateStepDueDate(step, startDate, assignment.endDate ? new Date(assignment.endDate) : undefined)
+  // Generate notifications for each review stage
+  template.stages.forEach((stage) => {
+    const dueDate = calculateStepDueDate(stage, startDate, assignment.endDate ? new Date(assignment.endDate) : undefined)
     if (dueDate) {
       const reminderDate = addDays(dueDate, -settings.formReminderDays)
 
       // Form reminder notification
       if (reminderDate >= new Date()) {
         notifications.push({
-          id: `notif-${assignment.id}-${step.id}-form-reminder`,
+          id: `notif-${assignment.id}-${stage.id}-form-reminder`,
           type: "form_reminder",
           recipientId: assignment.employeeId,
           recipientEmail: employee.email,
           recipientName: `${employee.firstName} ${employee.lastName}`,
-          title: `Evaluation Form Due Soon: ${step.name}`,
-          message: `Your evaluation form "${step.name}" is due on ${format(dueDate, "MMM dd, yyyy")}. Please complete it before the due date.`,
+          title: `Evaluation Form Due Soon: ${stage.name}`,
+          message: `Your evaluation form "${stage.name}" is due on ${format(dueDate, "MMM dd, yyyy")}. Please complete it before the due date.`,
           relatedEntityId: assignment.id,
           relatedEntityType: "workflow_assignment",
           scheduledDate: format(reminderDate, "yyyy-MM-dd"),
@@ -142,13 +142,13 @@ export function generateNotificationsForAssignment(
 
       // Form due notification
       notifications.push({
-        id: `notif-${assignment.id}-${step.id}-form-due`,
+        id: `notif-${assignment.id}-${stage.id}-form-due`,
         type: "form_due",
         recipientId: assignment.employeeId,
         recipientEmail: employee.email,
         recipientName: `${employee.firstName} ${employee.lastName}`,
-        title: `Evaluation Form Due: ${step.name}`,
-        message: `Your evaluation form "${step.name}" is due today. Please complete it as soon as possible.`,
+        title: `Evaluation Form Due: ${stage.name}`,
+        message: `Your evaluation form "${stage.name}" is due today. Please complete it as soon as possible.`,
         relatedEntityId: assignment.id,
         relatedEntityType: "workflow_assignment",
         scheduledDate: format(dueDate, "yyyy-MM-dd"),

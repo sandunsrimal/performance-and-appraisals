@@ -34,7 +34,7 @@ import {
   getEvaluationForm,
 } from "@/lib/workflow-data"
 import { demoEmployees } from "@/lib/data/demo-employees"
-import { type WorkflowStep } from "@/lib/types"
+import { type ReviewStage } from "@/lib/types"
 
 export default function ApprovalReviewPage({
   params,
@@ -46,7 +46,7 @@ export default function ApprovalReviewPage({
   const [assignment, setAssignment] = React.useState<typeof workflowAssignments[number] | null>(null)
   const [template, setTemplate] = React.useState<ReturnType<typeof getWorkflowTemplate> | null>(null)
   const [employee, setEmployee] = React.useState<ReturnType<typeof getEmployee> | null>(null)
-  const [step, setStep] = React.useState<WorkflowStep | null>(null)
+  const [step, setStep] = React.useState<ReviewStage | null>(null)
   const [managerName, setManagerName] = React.useState<string>("")
   const [approvalComment, setApprovalComment] = React.useState<string>("")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -80,9 +80,9 @@ export default function ApprovalReviewPage({
 
     setTemplate(templateData)
 
-    const stepData = templateData.steps.find((s) => s.id === resolvedParams.stepId)
+    const stepData = templateData.stages.find((s) => s.id === resolvedParams.stepId)
     if (!stepData) {
-      toast.error("Step not found")
+      toast.error("Review stage not found")
       return
     }
 
@@ -132,7 +132,7 @@ export default function ApprovalReviewPage({
 
     // Update step completion
     const updatedStepCompletions = {
-      ...assignment.stepCompletions,
+      ...assignment.stageCompletions,
       [resolvedParams.stepId]: {
         completed: true,
         completedDate: new Date().toISOString(),
@@ -145,16 +145,16 @@ export default function ApprovalReviewPage({
       },
     }
 
-    // Update assignment status if all steps are completed
-    const allCompleted = template.steps.every(
-      (step) => updatedStepCompletions[step.id]?.completed
+    // Update assignment status if all review stages are completed
+    const allCompleted = template.stages.every(
+      (stage) => updatedStepCompletions[stage.id]?.completed
     )
     const newStatus = allCompleted ? "completed" : "in_progress"
 
     // Update assignment using setter
     setAssignment({
       ...assignment,
-      stepCompletions: updatedStepCompletions,
+      stageCompletions: updatedStepCompletions,
       status: newStatus,
       updatedAt: new Date().toISOString(),
     })
@@ -182,7 +182,7 @@ export default function ApprovalReviewPage({
 
     // Update step completion with rejection
     const updatedStepCompletions = {
-      ...assignment.stepCompletions,
+      ...assignment.stageCompletions,
       [resolvedParams.stepId]: {
         completed: true,
         completedDate: new Date().toISOString(),
@@ -198,7 +198,7 @@ export default function ApprovalReviewPage({
     // Update assignment using setter
     setAssignment({
       ...assignment,
-      stepCompletions: updatedStepCompletions,
+      stageCompletions: updatedStepCompletions,
       status: "cancelled",
       updatedAt: new Date().toISOString(),
     })
@@ -218,16 +218,16 @@ export default function ApprovalReviewPage({
     )
   }
 
-  const isCompleted = assignment.stepCompletions[resolvedParams.stepId]?.completed
-  const completionData = assignment.stepCompletions[resolvedParams.stepId]?.formData as
+  const isCompleted = assignment.stageCompletions[resolvedParams.stepId]?.completed
+  const completionData = assignment.stageCompletions[resolvedParams.stepId]?.formData as
     | { approved?: boolean; comment?: string }
     | undefined
 
-  // Get all completed steps to show progress
-  const completedSteps = template.steps.filter(
-    (s) => assignment.stepCompletions[s.id]?.completed
+  // Get all completed review stages to show progress
+  const completedStages = template.stages.filter(
+    (s) => assignment.stageCompletions[s.id]?.completed
   )
-  const totalSteps = template.steps.length
+  const totalStages = template.stages.length
 
   // Toggle step expansion
   const toggleStep = (stepId: string) => {
@@ -321,14 +321,14 @@ export default function ApprovalReviewPage({
                   Steps Completed
                 </span>
                 <span className="text-sm font-medium">
-                  {completedSteps.length} / {totalSteps}
+                  {completedStages.length} / {totalStages}
                 </span>
               </div>
               <div className="w-full bg-muted rounded-full h-2">
                 <div
                   className="bg-primary h-2 rounded-full transition-all"
                   style={{
-                    width: `${(completedSteps.length / totalSteps) * 100}%`,
+                    width: `${(completedStages.length / totalStages) * 100}%`,
                   }}
                 />
               </div>
@@ -369,22 +369,22 @@ export default function ApprovalReviewPage({
           </CardContent>
         </Card>
 
-        {/* Completed Steps with Expandable Details */}
-        {completedSteps.length > 0 && (
+        {/* Completed Review Stages with Expandable Details */}
+        {completedStages.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Completed Steps</CardTitle>
+              <CardTitle>Completed Review Stages</CardTitle>
               <CardDescription>
-                Click on a step to view details and form feedbacks
+                Click on a review stage to view details and form feedbacks
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {completedSteps.map((completedStep) => {
-                  const completion = assignment.stepCompletions[completedStep.id]
-                  const isExpanded = expandedSteps.has(completedStep.id)
-                  const form = completedStep.evaluationFormId 
-                    ? getEvaluationForm(completedStep.evaluationFormId)
+                {completedStages.map((completedStage) => {
+                  const completion = assignment.stageCompletions[completedStage.id]
+                  const isExpanded = expandedSteps.has(completedStage.id)
+                  const form = completedStage.evaluationFormId 
+                    ? getEvaluationForm(completedStage.evaluationFormId)
                     : null
                   const formData = completion?.formData
                   
@@ -399,11 +399,11 @@ export default function ApprovalReviewPage({
                   
                   return (
                     <div
-                      key={completedStep.id}
+                      key={completedStage.id}
                       className="border rounded-lg overflow-hidden"
                     >
                       <button
-                        onClick={() => toggleStep(completedStep.id)}
+                        onClick={() => toggleStep(completedStage.id)}
                         className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center gap-3">
@@ -413,7 +413,7 @@ export default function ApprovalReviewPage({
                             <IconChevronDown className="size-4 text-muted-foreground" />
                           )}
                           <div className="text-left">
-                            <p className="text-sm font-medium">{completedStep.name}</p>
+                            <p className="text-sm font-medium">{completedStage.name}</p>
                             {completion?.completedDate && (
                               <p className="text-xs text-muted-foreground">
                                 Completed on {format(
@@ -438,12 +438,12 @@ export default function ApprovalReviewPage({
                             <Label className="text-xs font-semibold text-muted-foreground">
                               Step Details
                             </Label>
-                            {completedStep.description && (
-                              <p className="text-sm">{completedStep.description}</p>
+                            {completedStage.description && (
+                              <p className="text-sm">{completedStage.description}</p>
                             )}
-                            {completedStep.attendees && completedStep.attendees.length > 0 && (
+                            {completedStage.attendees && completedStage.attendees.length > 0 && (
                               <div className="flex flex-wrap gap-2 mt-2">
-                                {completedStep.attendees.map((attendee) => (
+                                {completedStage.attendees.map((attendee) => (
                                   <Badge key={attendee} variant="outline" className="text-xs">
                                     {attendee === "employee"
                                       ? `${employee.firstName} ${employee.lastName}`
@@ -620,13 +620,13 @@ export default function ApprovalReviewPage({
                   </p>
                 </div>
               )}
-              {assignment.stepCompletions[resolvedParams.stepId]?.completedDate && (
+              {assignment.stageCompletions[resolvedParams.stepId]?.completedDate && (
                 <div>
                   <Label className="text-sm font-medium">Decision Date</Label>
                   <p className="text-sm mt-1">
                     {format(
                       new Date(
-                        assignment.stepCompletions[resolvedParams.stepId]
+                        assignment.stageCompletions[resolvedParams.stepId]
                           ?.completedDate || ""
                       ),
                       "MMM dd, yyyy 'at' h:mm a"

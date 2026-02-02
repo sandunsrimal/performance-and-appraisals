@@ -103,18 +103,18 @@ export default function FormFillPage({
 
         if (template) {
           setProcedureName(template.name)
-          const step = template.steps.find((s) => s.id === stepId)
-          if (step && employee) {
-            setStepName(step.name)
+          const stage = template.stages.find((s) => s.id === stepId)
+          if (stage && employee) {
+            setStepName(stage.name)
 
             // Get context information
-            const context = getTaskContext(employee, currentUserId, currentUserName, step, template.name)
+            const context = getTaskContext(employee, currentUserId, currentUserName, stage, template.name)
             const display = formatTaskContextDisplay(context)
             setContextDisplay(display)
 
-            // Get manager name from step attendees
-            if (step.attendees) {
-              step.attendees.forEach((attendee) => {
+            // Get manager name from stage attendees
+            if (stage.attendees) {
+              stage.attendees.forEach((attendee) => {
                 if (attendee.startsWith("manager_level_")) {
                   const levelMatch = attendee.match(/manager_level_(\d+)/)
                   if (levelMatch && employee.managers) {
@@ -138,7 +138,7 @@ export default function FormFillPage({
         }
 
         // Load existing form data if available
-        const existingData = assignment.stepCompletions[stepId]?.formData
+        const existingData = assignment.stageCompletions[stepId]?.formData
         if (existingData) {
           setFormData(existingData as Record<string, unknown>)
         }
@@ -179,18 +179,18 @@ export default function FormFillPage({
     // For now, we'll update the assignment in memory
     const assignment = workflowAssignments.find((a) => a.id === assignmentId)
     if (assignment) {
-      assignment.stepCompletions[stepId] = {
+      assignment.stageCompletions[stepId] = {
         completed: true,
         completedDate: new Date().toISOString(),
         completedBy: assignment.employeeId,
         formData,
       }
 
-      // Update assignment status if all steps are completed
+      // Update assignment status if all stages are completed
       const template = getWorkflowTemplate(assignment.workflowTemplateId)
       if (template) {
-        const allCompleted = template.steps.every(
-          (step) => assignment.stepCompletions[step.id]?.completed
+        const allCompleted = template.stages.every(
+          (stage) => assignment.stageCompletions[stage.id]?.completed
         )
         if (allCompleted) {
           assignment.status = "completed"

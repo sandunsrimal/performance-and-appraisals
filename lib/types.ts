@@ -94,16 +94,16 @@ export type NotificationSettings = {
   channels: ("email" | "in-app" | "sms")[]
 }
 
-// Workflow Step
-export type WorkflowStep = {
+// Review Stage
+export type ReviewStage = {
   id: string
   name: string
   description: string
   order: number
   type: "evaluation" | "meeting" | "review" | "approval"
   evaluationFormId?: string
-  managerLevel?: number // For manager-specific steps (deprecated, use responsiblePersons instead)
-  attendees?: string[] // Who should attend/participate in this step (e.g., ["employee", "manager_level_1", "manager_level_2"])
+  managerLevel?: number // For manager-specific stages (deprecated, use responsiblePersons instead)
+  attendees?: string[] // Who should attend/participate in this stage (e.g., ["employee", "manager_level_1", "manager_level_2"])
   dueDateType?: "before_interval" | "on_interval" | "after_interval" | "custom" // Relative to appraisal date
   dueDateOffset?: number // Days offset (negative for before, 0 for on, positive for after)
   dueDateUnit?: "days" | "weeks" | "months" // Unit for offset (only for custom)
@@ -111,7 +111,7 @@ export type WorkflowStep = {
   reminderSettings?: {
     enabled: boolean
     reminderDays: number // Days before due date to send reminder (e.g., 7 for 7 days before)
-    channels?: ("email" | "in-app" | "sms")[] // Notification channels for this step
+    channels?: ("email" | "in-app" | "sms")[] // Notification channels for this stage
   }
 }
 
@@ -122,7 +122,7 @@ export type WorkflowTemplate = {
   description: string
   applicablePositions: string[] // e.g., ["Software Engineer", "Senior Software Engineer"]
   applicableDepartments: string[] // e.g., ["Engineering"]
-  steps: WorkflowStep[]
+  stages: ReviewStage[]
   meetingFrequencies: ManagerLevelMeeting[]
   notificationSettings: NotificationSettings
   interval: MeetingFrequency // How often this procedure runs (bi-weekly, monthly, quarterly, yearly, custom)
@@ -140,8 +140,8 @@ export type WorkflowAssignment = {
   status: "not_started" | "in_progress" | "completed" | "cancelled"
   startDate: string
   endDate?: string
-  currentStepId?: string
-  stepCompletions: Record<string, {
+  currentStageId?: string
+  stageCompletions: Record<string, {
     completed: boolean
     completedDate?: string
     completedBy?: string
