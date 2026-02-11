@@ -77,6 +77,7 @@ type ManagerLevel = {
   externalName?: string // For external managers
   externalEmail?: string // For external managers
   isExternal?: boolean // Flag to indicate if it's an external manager
+  isEvaluationResponsible?: boolean // Flag to indicate if this manager is responsible for evaluation
 }
 
 // Employee type definition
@@ -469,7 +470,7 @@ export default function EmployeesPage() {
     const nextLevel = selectedManagers.length > 0 
       ? Math.max(...selectedManagers.map((m) => m.level)) + 1 
       : 1
-    setSelectedManagers((prev) => [...prev, { level: nextLevel, employeeId: "", isExternal: false }])
+    setSelectedManagers((prev) => [...prev, { level: nextLevel, employeeId: "", isExternal: false, isEvaluationResponsible: false }])
     setManagerSourceType((prev) => ({ ...prev, [nextLevel]: "existing" }))
   }
 
@@ -492,9 +493,10 @@ export default function EmployeesPage() {
     if (!selectedManager) return
 
     setSelectedManagers((prev) => {
+      const existingManager = prev.find((m) => m.level === level)
       const updated = prev.map((m) =>
         m.level === level 
-          ? { ...m, employeeId, isExternal: false, externalName: undefined, externalEmail: undefined } 
+          ? { ...m, employeeId, isExternal: false, externalName: undefined, externalEmail: undefined, isEvaluationResponsible: existingManager?.isEvaluationResponsible || false } 
           : m
       )
       setFormData((prevForm) => ({
@@ -515,9 +517,10 @@ export default function EmployeesPage() {
 
   const updateExternalManager = (level: number, name: string, email: string) => {
     setSelectedManagers((prev) => {
+      const existingManager = prev.find((m) => m.level === level)
       const updated = prev.map((m) =>
         m.level === level 
-          ? { ...m, externalName: name, externalEmail: email, isExternal: true, employeeId: undefined } 
+          ? { ...m, externalName: name, externalEmail: email, isExternal: true, employeeId: undefined, isEvaluationResponsible: existingManager?.isEvaluationResponsible || false } 
           : m
       )
       setFormData((prevForm) => ({
@@ -544,6 +547,21 @@ export default function EmployeesPage() {
         updated[level] = ""
         return updated
       })
+      return updated
+    })
+  }
+
+  const toggleEvaluationResponsible = (level: number) => {
+    setSelectedManagers((prev) => {
+      const updated = prev.map((m) =>
+        m.level === level 
+          ? { ...m, isEvaluationResponsible: !m.isEvaluationResponsible } 
+          : m
+      )
+      setFormData((prevForm) => ({
+        ...prevForm,
+        managers: updated.filter((m) => m.employeeId || m.externalName),
+      }))
       return updated
     })
   }
@@ -1039,7 +1057,7 @@ export default function EmployeesPage() {
                                     {selectedEmployee && (
                                       <div className="mt-2 rounded-md border bg-muted/30 p-3">
                                         <div className="flex items-center justify-between">
-                                          <div className="flex items-center gap-3">
+                                          <div className="flex items-center gap-3 flex-1">
                                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                                               <span className="text-sm font-semibold">
                                                 {selectedEmployee.name
@@ -1049,10 +1067,25 @@ export default function EmployeesPage() {
                                                   .toUpperCase()}
                                               </span>
                                             </div>
-                                            <div className="flex flex-col">
-                                              <span className="text-sm font-medium">
-                                                {selectedEmployee.name}
-                                              </span>
+                                            <div className="flex flex-col flex-1">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium">
+                                                  {selectedEmployee.name}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                  <Checkbox
+                                                    id={`eval-responsible-${managerLevel.level}`}
+                                                    checked={managerLevel.isEvaluationResponsible || false}
+                                                    onCheckedChange={() => toggleEvaluationResponsible(managerLevel.level)}
+                                                  />
+                                                  <Label 
+                                                    htmlFor={`eval-responsible-${managerLevel.level}`}
+                                                    className="text-xs text-muted-foreground cursor-pointer"
+                                                  >
+                                                    Evaluation Responsible
+                                                  </Label>
+                                                </div>
+                                              </div>
                                               <span className="text-xs text-muted-foreground">
                                                 {selectedEmployee.email}
                                               </span>
@@ -1113,7 +1146,7 @@ export default function EmployeesPage() {
                                     {(managerLevel.externalName || managerLevel.externalEmail) && (
                                       <div className="mt-2 rounded-md border bg-muted/30 p-3">
                                         <div className="flex items-center justify-between">
-                                          <div className="flex items-center gap-3">
+                                          <div className="flex items-center gap-3 flex-1">
                                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                                               <span className="text-sm font-semibold">
                                                 {managerLevel.externalName
@@ -1125,10 +1158,25 @@ export default function EmployeesPage() {
                                                   : "EM"}
                                               </span>
                                             </div>
-                                            <div className="flex flex-col">
-                                              <span className="text-sm font-medium">
-                                                {managerLevel.externalName || "External Manager"}
-                                              </span>
+                                            <div className="flex flex-col flex-1">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium">
+                                                  {managerLevel.externalName || "External Manager"}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                  <Checkbox
+                                                    id={`eval-responsible-external-${managerLevel.level}`}
+                                                    checked={managerLevel.isEvaluationResponsible || false}
+                                                    onCheckedChange={() => toggleEvaluationResponsible(managerLevel.level)}
+                                                  />
+                                                  <Label 
+                                                    htmlFor={`eval-responsible-external-${managerLevel.level}`}
+                                                    className="text-xs text-muted-foreground cursor-pointer"
+                                                  >
+                                                    Evaluation Responsible
+                                                  </Label>
+                                                </div>
+                                              </div>
                                               <span className="text-xs text-muted-foreground">
                                                 {managerLevel.externalEmail || "No email"}
                                               </span>
@@ -1291,7 +1339,7 @@ export default function EmployeesPage() {
                               )}
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge variant="secondary" className="text-xs">
-                                  {procedure.stages.length} {procedure.stages.length === 1 ? "stage" : "stages"}
+                                  {procedure.stages.length} {procedure.stages.length === 1 ? "step" : "steps"}
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
                                   {procedure.interval.type === "quarterly"
@@ -1367,7 +1415,7 @@ export default function EmployeesPage() {
                               )}
                               <div className="flex items-center gap-2 mt-2">
                                 <Badge variant="secondary" className="text-xs">
-                                  {procedure.stages.length} {procedure.stages.length === 1 ? "stage" : "stages"}
+                                  {procedure.stages.length} {procedure.stages.length === 1 ? "step" : "steps"}
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
                                   {procedure.interval.type === "quarterly"

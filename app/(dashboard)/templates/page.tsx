@@ -421,7 +421,7 @@ export default function TemplatesPage() {
   const confirmDelete = React.useCallback(() => {
     if (formToDelete) {
       setForms((prev) => prev.filter((f) => f.id !== formToDelete))
-      toast.success("Evaluation form deleted successfully!")
+      toast.success("Review form deleted successfully!")
       setFormToDelete(null)
     }
     setDeleteDialogOpen(false)
@@ -648,7 +648,7 @@ export default function TemplatesPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 lg:px-6">
         <div>
-          <h2 className="text-2xl font-semibold">Evaluation Forms</h2>
+          <h2 className="text-2xl font-semibold">Review Forms</h2>
           <p className="text-muted-foreground mt-2">
             Create and manage customizable evaluation forms like Google Forms.
           </p>

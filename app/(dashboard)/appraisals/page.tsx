@@ -17,7 +17,6 @@ import {
 } from "@tanstack/react-table"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -41,10 +40,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { IconCalendar, IconCheck, IconClock, IconFileText, IconUsers, IconEye, IconDownload, IconStarFilled, IconBell } from "@tabler/icons-react"
+import { IconCalendar, IconCheck, IconClock, IconFileText, IconUsers, IconEye, IconDownload, IconStarFilled, IconBell, IconEdit, IconX, IconPlus } from "@tabler/icons-react"
 import { demoEmployees } from "@/lib/data/demo-employees"
 import { type Appraisal, type WorkflowAssignment, type EvaluationForm } from "@/lib/types"
-import { workflowAssignments, getWorkflowTemplate, getEmployee, initializeWorkflowData, getEvaluationForm } from "@/lib/workflow-data"
+import { workflowAssignments, getWorkflowTemplate, getEmployee, initializeWorkflowData, getEvaluationForm, getEffectiveManagers } from "@/lib/workflow-data"
 import { useRole } from "@/lib/role-context"
 import {
   Sheet,
@@ -52,11 +51,66 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from "@/components/ui/sheet"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Input } from "@/components/ui/input"
+import type { ManagerLevel } from "@/lib/types"
+
+// Helper function to calculate form completion status by role
+const getFormCompletionStatus = (assignment: WorkflowAssignment, template: ReturnType<typeof getWorkflowTemplate>) => {
+  if (!template) return { employeeForms: { completed: 0, total: 0 }, managerForms: { completed: 0, total: 0 } }
+  
+  let employeeFormsCompleted = 0
+  let employeeFormsTotal = 0
+  let managerFormsCompleted = 0
+  let managerFormsTotal = 0
+  
+  template.stages.forEach((stage) => {
+    // Only count stages with evaluation forms
+    if (!stage.evaluationFormId || stage.type !== "evaluation") return
+    
+    const completion = assignment.stageCompletions[stage.id]
+    const isCompleted = completion?.completed || false
+    
+    // Check if employee should complete this form
+    const isEmployeeForm = stage.attendees?.includes("employee") ?? false
+    // Check if manager should complete this form
+    const isManagerForm = stage.attendees?.some(a => a.startsWith("manager_level_")) ?? false
+    
+    // Count employee forms
+    if (isEmployeeForm) {
+      employeeFormsTotal++
+      if (isCompleted) {
+        employeeFormsCompleted++
+      }
+    }
+    
+    // Count manager forms
+    if (isManagerForm) {
+      managerFormsTotal++
+      if (isCompleted) {
+        managerFormsCompleted++
+      }
+    }
+  })
+  
+  return {
+    employeeForms: { completed: employeeFormsCompleted, total: employeeFormsTotal },
+    managerForms: { completed: managerFormsCompleted, total: managerFormsTotal },
+  }
+}
 
 // Helper function to convert WorkflowAssignment to Appraisal
 const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal | null => {
@@ -102,11 +156,12 @@ const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal
   const interval = template.interval
   const reviewPeriod = `${format(startDate, "MMM yyyy")} - ${assignment.endDate ? format(new Date(assignment.endDate), "MMM yyyy") : "Ongoing"}`
 
-  // Get reviewers (managers) from employee or template stages
+  // Get reviewers (managers) from employee or template stages - use effective managers (assignment overrides or employee's managers)
+  const effectiveManagers = getEffectiveManagers(assignment)
   const reviewers: string[] = []
   template.stages.forEach((stage) => {
     if (stage.managerLevel) {
-      const manager = employee.managers?.find((m) => m.level === stage.managerLevel)
+      const manager = effectiveManagers.find((m) => m.level === stage.managerLevel)
       if (manager) {
         if (manager.isExternal && manager.externalName) {
           reviewers.push(manager.externalName)
@@ -162,10 +217,10 @@ const convertAssignmentToAppraisal = (assignment: WorkflowAssignment): Appraisal
     achievements: [],
     areasForImprovement: [],
     comments: allStagesCompleted 
-      ? `All stages completed (${completedStages}/${allStagesInCompletions.length})`
+      ? `All steps completed (${completedStages}/${allStagesInCompletions.length})`
       : currentStage 
-        ? `Current stage: ${currentStage.name} (${completedStages}/${allStagesInCompletions.length} completed)` 
-        : `No active stage (${completedStages}/${allStagesInCompletions.length} completed)`,
+        ? `Current step: ${currentStage.name} (${completedStages}/${allStagesInCompletions.length} completed)` 
+        : `No active step (${completedStages}/${allStagesInCompletions.length} completed)`,
     createdAt: assignment.createdAt,
     updatedAt: assignment.updatedAt,
   }
@@ -211,7 +266,7 @@ const downloadFormResponse = (
   content += `Position: ${appraisal.position}\n`
   content += `Department: ${appraisal.department}\n`
   content += `Appraisal Period: ${appraisal.reviewPeriod}\n`
-  content += `Review Stage: ${stepName}\n`
+  content += `Review Step: ${stepName}\n`
   content += `Form: ${form.name}\n`
   if (completedDate) {
     content += `Completed Date: ${format(new Date(completedDate), "MMM dd, yyyy")}\n`
@@ -278,6 +333,13 @@ function AppraisalsPageContent() {
     completedDate?: string
   } | null>(null)
 
+  // Edit manager state
+  const [editingAssignmentId, setEditingAssignmentId] = React.useState<string | null>(null)
+  const [isEditManagerSheetOpen, setIsEditManagerSheetOpen] = React.useState(false)
+  const [selectedManagers, setSelectedManagers] = React.useState<ManagerLevel[]>([])
+  const [managerSearchValues, setManagerSearchValues] = React.useState<Record<number, string>>({})
+  const [managerSourceType, setManagerSourceType] = React.useState<Record<number, "existing" | "external">>({})
+
   // Initialize workflow data with employees
   React.useEffect(() => {
     setIsMounted(true)
@@ -340,6 +402,171 @@ function AppraisalsPageContent() {
     })
     return managedIds
   }, [currentUserId, currentRole])
+
+  // Get available employees as managers
+  const availableManagers = React.useMemo(() => {
+    return demoEmployees
+      .filter((emp) => emp.status === "Active")
+      .map((emp) => ({
+        id: emp.id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        email: emp.email,
+      }))
+  }, [])
+
+  // Get manager name by ID
+  const getManagerName = (employeeId: string) => {
+    const manager = availableManagers.find((m) => m.id === employeeId)
+    return manager ? manager.name : ""
+  }
+
+  // Filter managers based on search for each level
+  const getFilteredManagersForLevel = (level: number) => {
+    const searchValue = managerSearchValues[level] || ""
+    const selectedAtOtherLevels = new Set(
+      selectedManagers
+        .filter((m) => m.level !== level && m.employeeId)
+        .map((m) => m.employeeId)
+    )
+    
+    return availableManagers.filter((manager) => {
+      const matchesSearch =
+        !searchValue ||
+        manager.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+        manager.email.toLowerCase().includes(searchValue.toLowerCase())
+      
+      const isSelectedAtOtherLevel = selectedAtOtherLevels.has(manager.id)
+      
+      return matchesSearch && !isSelectedAtOtherLevel
+    })
+  }
+
+  // Handle edit manager assignment
+  const handleEditManagerAssignment = (assignment: WorkflowAssignment) => {
+    setEditingAssignmentId(assignment.id)
+    // Load existing manager overrides or use employee's managers
+    const employee = getEmployee(assignment.employeeId)
+    const managers = assignment.managerOverrides || employee?.managers || []
+    setSelectedManagers(managers)
+    
+    // Set manager search values and source types
+    const searchValues: Record<number, string> = {}
+    const sourceTypes: Record<number, "existing" | "external"> = {}
+    managers.forEach((manager) => {
+      if (manager.isExternal) {
+        sourceTypes[manager.level] = "external"
+      } else {
+        sourceTypes[manager.level] = "existing"
+        if (manager.employeeId) {
+          searchValues[manager.level] = getManagerName(manager.employeeId)
+        }
+      }
+    })
+    setManagerSearchValues(searchValues)
+    setManagerSourceType(sourceTypes)
+    setIsEditManagerSheetOpen(true)
+  }
+
+  // Manager management functions
+  const addManagerLevel = () => {
+    const nextLevel = selectedManagers.length > 0 
+      ? Math.max(...selectedManagers.map((m) => m.level)) + 1 
+      : 1
+    setSelectedManagers((prev) => [...prev, { level: nextLevel, employeeId: "", isExternal: false }])
+    setManagerSourceType((prev) => ({ ...prev, [nextLevel]: "existing" }))
+  }
+
+  const removeManagerLevel = (level: number) => {
+    setSelectedManagers((prev) => {
+      const updated = prev.filter((m) => m.level !== level)
+      return updated.map((m, index) => ({ ...m, level: index + 1 }))
+    })
+    setManagerSearchValues((prev) => {
+      const updated = { ...prev }
+      delete updated[level]
+      return updated
+    })
+  }
+
+  const selectManagerForLevel = (level: number, employeeId: string) => {
+    const selectedManager = availableManagers.find((m) => m.id === employeeId)
+    if (!selectedManager) return
+
+    setSelectedManagers((prev) => {
+      const existingManager = prev.find((m) => m.level === level)
+      const updated = prev.map((m) =>
+        m.level === level 
+          ? { ...m, employeeId, isExternal: false, externalName: undefined, externalEmail: undefined } 
+          : m
+      )
+      setManagerSearchValues((prevSearch) => ({
+        ...prevSearch,
+        [level]: selectedManager.name,
+      }))
+      setManagerSourceType((prev) => ({ ...prev, [level]: "existing" }))
+      return updated
+    })
+  }
+
+  const updateExternalManager = (level: number, name: string, email: string) => {
+    setSelectedManagers((prev) => {
+      const existingManager = prev.find((m) => m.level === level)
+      const updated = prev.map((m) =>
+        m.level === level 
+          ? { ...m, externalName: name, externalEmail: email, isExternal: true, employeeId: undefined } 
+          : m
+      )
+      return updated
+    })
+  }
+
+  const removeManagerFromLevel = (level: number) => {
+    setSelectedManagers((prev) => {
+      const updated = prev.map((m) =>
+        m.level === level 
+          ? { ...m, employeeId: undefined, externalName: undefined, externalEmail: undefined, isExternal: false } 
+          : m
+      )
+      setManagerSearchValues((prev) => {
+        const updated = { ...prev }
+        updated[level] = ""
+        return updated
+      })
+      return updated
+    })
+  }
+
+  const toggleEvaluationResponsible = (level: number) => {
+    setSelectedManagers((prev) =>
+      prev.map((m) =>
+        m.level === level ? { ...m, isEvaluationResponsible: !m.isEvaluationResponsible } : m
+      )
+    )
+  }
+
+  // Save manager changes
+  const handleSaveManagerChanges = () => {
+    if (!editingAssignmentId) return
+
+    setAssignments((prev) =>
+      prev.map((assignment) =>
+        assignment.id === editingAssignmentId
+          ? {
+              ...assignment,
+              managerOverrides: selectedManagers.filter((m) => m.employeeId || m.externalName),
+              updatedAt: new Date().toISOString(),
+            }
+          : assignment
+      )
+    )
+
+    toast.success("Manager assignment updated successfully!")
+    setIsEditManagerSheetOpen(false)
+    setEditingAssignmentId(null)
+    setSelectedManagers([])
+    setManagerSearchValues({})
+    setManagerSourceType({})
+  }
 
   // Convert workflow assignments to appraisals
   const appraisals = React.useMemo(() => {
@@ -452,8 +679,66 @@ function AppraisalsPageContent() {
                 <div className="text-xs text-muted-foreground">
                   {Object.keys(assignment.stageCompletions).filter(
                     (stageId) => assignment.stageCompletions[stageId].completed
-                  ).length} / {template.stages.length} stages
+                  ).length} / {template.stages.length} steps
                 </div>
+              )}
+            </div>
+          )
+        },
+      },
+      {
+        id: "formCompletion",
+        header: "Form Completion",
+        cell: ({ row }) => {
+          const assignment = assignments.find((a) => a.id === row.original.workflowAssignmentId)
+          const template = assignment ? getWorkflowTemplate(assignment.workflowTemplateId) : null
+          
+          if (!assignment || !template) {
+            return <span className="text-sm text-muted-foreground">N/A</span>
+          }
+          
+          const completionStatus = getFormCompletionStatus(assignment, template)
+          const employeeComplete = completionStatus.employeeForms.total === 0 || 
+                                  completionStatus.employeeForms.completed === completionStatus.employeeForms.total
+          const managerComplete = completionStatus.managerForms.total === 0 || 
+                                 completionStatus.managerForms.completed === completionStatus.managerForms.total
+          
+          return (
+            <div className="flex flex-col gap-1.5">
+              {completionStatus.employeeForms.total > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                    employeeComplete ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {employeeComplete ? (
+                      <IconCheck className="size-3" />
+                    ) : (
+                      <span className="text-xs font-semibold">E</span>
+                    )}
+                  </div>
+                  <span className="text-xs">
+                    Employee: {completionStatus.employeeForms.completed}/{completionStatus.employeeForms.total}
+                  </span>
+                </div>
+              )}
+              {completionStatus.managerForms.total > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                    managerComplete ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {managerComplete ? (
+                      <IconCheck className="size-3" />
+                    ) : (
+                      <span className="text-xs font-semibold">M</span>
+                    )}
+                  </div>
+                  <span className="text-xs">
+                    Manager: {completionStatus.managerForms.completed}/{completionStatus.managerForms.total}
+                  </span>
+                </div>
+              )}
+              {completionStatus.employeeForms.total === 0 && completionStatus.managerForms.total === 0 && (
+                <span className="text-xs text-muted-foreground">No forms</span>
               )}
             </div>
           )
@@ -528,8 +813,42 @@ function AppraisalsPageContent() {
           )
         },
       },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          const assignment = assignments.find((a) => a.id === row.original.workflowAssignmentId)
+          return (
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedAppraisal(row.original)
+                  setDetailSheetOpen(true)
+                }}
+              >
+                <IconEye className="size-4" />
+              </Button>
+              {currentRole === "admin" && assignment && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleEditManagerAssignment(assignment)
+                  }}
+                >
+                  <IconEdit className="size-4" />
+                </Button>
+              )}
+            </div>
+          )
+        },
+      },
     ],
-    [assignments]
+    [assignments, currentRole]
   )
 
   const table = useReactTable({
@@ -573,7 +892,7 @@ function AppraisalsPageContent() {
           <div>
             <h2 className="text-2xl font-semibold">Appraisals</h2>
             <p className="text-muted-foreground mt-2">
-              View employee performance appraisals linked to workflow assignments. Appraisals are automatically created from workflow assignments.
+              View employee performance appraisals linked to procedures. Appraisals are automatically created from procedure assignments.
             </p>
           </div>
         </div>
@@ -783,7 +1102,7 @@ function AppraisalsPageContent() {
           <SheetHeader>
             <SheetTitle>Appraisal Details</SheetTitle>
             <SheetDescription>
-              View detailed information about this appraisal, review stages, and form feedbacks
+              View detailed information about this appraisal, review steps, and form responses
             </SheetDescription>
           </SheetHeader>
 
@@ -859,11 +1178,121 @@ function AppraisalsPageContent() {
                   </CardContent>
                 </Card>
 
-                {/* Workflow Procedure */}
+                {/* Form Completion Summary */}
+                {template && assignment && (() => {
+                  const completionStatus = getFormCompletionStatus(assignment, template)
+                  const employeeComplete = completionStatus.employeeForms.total === 0 || 
+                                          completionStatus.employeeForms.completed === completionStatus.employeeForms.total
+                  const managerComplete = completionStatus.managerForms.total === 0 || 
+                                         completionStatus.managerForms.completed === completionStatus.managerForms.total
+                  const allFormsComplete = employeeComplete && managerComplete
+                  
+                  return (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Evaluation Form Completion Status</CardTitle>
+                        <CardDescription>
+                          Track completion status of required evaluation forms by role
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {/* Employee Forms */}
+                          {completionStatus.employeeForms.total > 0 && (
+                            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+                              <div className="flex items-center gap-3">
+                                <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                  employeeComplete ? "bg-green-500 text-white" : "bg-orange-500 text-white"
+                                }`}>
+                                  {employeeComplete ? (
+                                    <IconCheck className="size-5" />
+                                  ) : (
+                                    <IconClock className="size-5" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-semibold">Employee Forms</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {completionStatus.employeeForms.completed} of {completionStatus.employeeForms.total} completed
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant={employeeComplete ? "default" : "secondary"}>
+                                {employeeComplete ? "Complete" : "Incomplete"}
+                              </Badge>
+                            </div>
+                          )}
+                          
+                          {/* Manager Forms */}
+                          {completionStatus.managerForms.total > 0 && (
+                            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+                              <div className="flex items-center gap-3">
+                                <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                  managerComplete ? "bg-green-500 text-white" : "bg-orange-500 text-white"
+                                }`}>
+                                  {managerComplete ? (
+                                    <IconCheck className="size-5" />
+                                  ) : (
+                                    <IconClock className="size-5" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-semibold">Manager Forms</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {completionStatus.managerForms.completed} of {completionStatus.managerForms.total} completed
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant={managerComplete ? "default" : "secondary"}>
+                                {managerComplete ? "Complete" : "Incomplete"}
+                              </Badge>
+                            </div>
+                          )}
+                          
+                          {/* Overall Status */}
+                          <div className={`flex items-center justify-between p-4 rounded-lg border ${
+                            allFormsComplete ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800" : "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800"
+                          }`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                allFormsComplete ? "bg-green-500 text-white" : "bg-orange-500 text-white"
+                              }`}>
+                                {allFormsComplete ? (
+                                  <IconCheck className="size-5" />
+                                ) : (
+                                  <IconClock className="size-5" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-semibold">Overall Status</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {allFormsComplete 
+                                    ? "All required evaluation forms have been completed"
+                                    : "Some evaluation forms are still pending"}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant={allFormsComplete ? "default" : "secondary"}>
+                              {allFormsComplete ? "All Complete" : "Pending"}
+                            </Badge>
+                          </div>
+                          
+                          {completionStatus.employeeForms.total === 0 && completionStatus.managerForms.total === 0 && (
+                            <div className="text-center py-4 text-muted-foreground">
+                              <p className="text-sm">No evaluation forms are required for this procedure.</p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })()}
+
+                {/* Procedure */}
                 {template && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>Workflow Procedure</CardTitle>
+                      <CardTitle>Procedure</CardTitle>
                       <CardDescription>{template.description}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -892,15 +1321,15 @@ function AppraisalsPageContent() {
                   </Card>
                 )}
 
-                {/* Review Stages */}
+                {/* Review Steps */}
                 {template && assignment && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>Review Stages</CardTitle>
+                      <CardTitle>Review Steps</CardTitle>
                       <CardDescription>
                         {Object.keys(assignment.stageCompletions).filter(
                           (stageId) => assignment.stageCompletions[stageId].completed
-                        ).length} of {template.stages.length} review stages completed
+                        ).length} of {template.stages.length} review steps completed
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -948,6 +1377,39 @@ function AppraisalsPageContent() {
                                       </div>
                                       <p className="text-sm text-muted-foreground mb-2">{stage.description}</p>
                                       
+                                      {/* Form Assignment - Show who should complete the form */}
+                                      {form && stage.evaluationFormId && (
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <IconFileText className="size-4 text-muted-foreground" />
+                                          <span className="text-xs font-medium">Evaluation Form Required:</span>
+                                          <div className="flex items-center gap-2">
+                                            {stage.attendees?.includes("employee") && (
+                                              <Badge variant="outline" className="text-xs">
+                                                Employee Form
+                                              </Badge>
+                                            )}
+                                            {stage.attendees?.some(a => a.startsWith("manager_level_")) && (
+                                              <Badge variant="outline" className="text-xs">
+                                                Manager Form
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          {isCompleted && completion.completedBy && (
+                                            <span className="text-xs text-muted-foreground">
+                                              • Completed by {completion.completedBy === assignment.employeeId 
+                                                ? "Employee" 
+                                                : (() => {
+                                                    const effectiveManagers = getEffectiveManagers(assignment)
+                                                    const manager = effectiveManagers.find(m => m.employeeId === completion.completedBy)
+                                                    return manager 
+                                                      ? (manager.isExternal ? manager.externalName : getEmployee(manager.employeeId || "")?.firstName + " " + getEmployee(manager.employeeId || "")?.lastName)
+                                                      : "Manager"
+                                                  })()}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                      
                                       {/* Attendees */}
                                       {stage.attendees && stage.attendees.length > 0 && (
                                         <div className="flex items-center gap-2 mb-2">
@@ -961,7 +1423,8 @@ function AppraisalsPageContent() {
                                               const managerLevelMatch = a.match(/^manager_level_(\d+)$/)
                                               if (managerLevelMatch && employee) {
                                                 const level = parseInt(managerLevelMatch[1], 10)
-                                                const manager = employee.managers?.find((m) => m.level === level)
+                                                const effectiveManagers = getEffectiveManagers(assignment)
+                                                const manager = effectiveManagers.find((m) => m.level === level)
                                                 if (manager) {
                                                   if (manager.isExternal && manager.externalName) {
                                                     return `Manager Level ${level} (${manager.externalName})`
@@ -990,7 +1453,7 @@ function AppraisalsPageContent() {
                                       {!isCompleted && assignment.currentStageId === stage.id && (
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                           <IconClock className="size-3 text-primary" />
-                                          <span>Current Step</span>
+                                          <span>Current Review Step</span>
                                         </div>
                                       )}
                                     </div>
@@ -1016,7 +1479,8 @@ function AppraisalsPageContent() {
                                               const managerLevelMatch = attendee.match(/^manager_level_(\d+)$/)
                                               if (managerLevelMatch && employee) {
                                                 const level = parseInt(managerLevelMatch[1], 10)
-                                                const manager = employee.managers?.find((m) => m.level === level)
+                                                const effectiveManagers = getEffectiveManagers(assignment)
+                                                const manager = effectiveManagers.find((m) => m.level === level)
                                                 if (manager) {
                                                   if (manager.isExternal && manager.externalName) {
                                                     responsiblePersons.push(`Manager Level ${level} (${manager.externalName})`)
@@ -1037,7 +1501,7 @@ function AppraisalsPageContent() {
                                           : "the responsible person(s)"
                                         
                                         toast.success("Reminder sent", {
-                                          description: `A reminder has been sent to ${recipients} for the "${stage.name}" review stage.`,
+                                          description: `A reminder has been sent to ${recipients} for the "${stage.name}" review step.`,
                                         })
                                       }}
                                       className="flex items-center gap-2 shrink-0"
@@ -1130,10 +1594,36 @@ function AppraisalsPageContent() {
                                 )}
                                 {form && (!completion?.formData || Object.keys(completion.formData).length === 0) && (
                                   <div className="mt-3 pt-3 border-t">
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                      <IconFileText className="size-4" />
-                                      <span>Form: {form.name} (Not completed yet)</span>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <IconFileText className="size-4 text-orange-500" />
+                                      <span className="font-medium">Form: {form.name}</span>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {stage.attendees?.includes("employee") ? "Employee Form" : "Manager Form"} - Pending
+                                      </Badge>
                                     </div>
+                                    <p className="text-xs text-muted-foreground mt-1 ml-6">
+                                      {stage.attendees?.includes("employee") 
+                                        ? `Awaiting completion by ${employee?.firstName} ${employee?.lastName}`
+                                        : (() => {
+                                            const managerLevelMatch = stage.attendees?.find(a => a.startsWith("manager_level_"))?.match(/^manager_level_(\d+)$/)
+                                            if (managerLevelMatch && employee) {
+                                              const level = parseInt(managerLevelMatch[1], 10)
+                                              const effectiveManagers = getEffectiveManagers(assignment)
+                                              const manager = effectiveManagers.find((m) => m.level === level)
+                                              if (manager) {
+                                                if (manager.isExternal && manager.externalName) {
+                                                  return `Awaiting completion by Manager Level ${level} (${manager.externalName})`
+                                                } else if (manager.employeeId) {
+                                                  const managerEmp = getEmployee(manager.employeeId)
+                                                  if (managerEmp) {
+                                                    return `Awaiting completion by Manager Level ${level} (${managerEmp.firstName} ${managerEmp.lastName})`
+                                                  }
+                                                }
+                                              }
+                                            }
+                                            return "Awaiting completion by Manager"
+                                          })()}
+                                    </p>
                                   </div>
                                 )}
                               </div>
@@ -1315,6 +1805,381 @@ function AppraisalsPageContent() {
               </div>
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Edit Manager Assignment Sheet */}
+      <Sheet open={isEditManagerSheetOpen} onOpenChange={(open) => {
+        setIsEditManagerSheetOpen(open)
+        if (!open) {
+          setEditingAssignmentId(null)
+          setSelectedManagers([])
+          setManagerSearchValues({})
+          setManagerSourceType({})
+        }
+      }}>
+        <SheetContent side="right" className="w-full! max-w-full! md:w-[70vw]! md:max-w-[70vw]! lg:w-[50vw]! lg:max-w-[50vw]! overflow-y-auto px-8 py-4">
+          <SheetHeader>
+            <SheetTitle>Edit Manager Assignment</SheetTitle>
+            <SheetDescription>
+              Change the assigned manager(s) for this procedure. This will override the employee&apos;s default manager assignment for this specific procedure only.
+            </SheetDescription>
+          </SheetHeader>
+          {editingAssignmentId && (() => {
+            const assignment = assignments.find((a) => a.id === editingAssignmentId)
+            const employee = assignment ? getEmployee(assignment.employeeId) : null
+            const template = assignment ? getWorkflowTemplate(assignment.workflowTemplateId) : null
+            
+            return (
+              <div className="space-y-6 mt-6">
+                {/* Assignment Info */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Assignment Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Employee</Label>
+                      <p className="font-medium">{employee ? `${employee.firstName} ${employee.lastName}` : "Unknown"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Procedure</Label>
+                      <p className="font-medium">{template?.name || "Unknown"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Status</Label>
+                      <Badge variant={assignment?.status === "completed" ? "default" : assignment?.status === "in_progress" ? "secondary" : "outline"}>
+                        {assignment?.status.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Manager Assignment */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Manager Assignment</CardTitle>
+                    <CardDescription>
+                      Assign managers for this procedure. These will override the employee&apos;s default managers for this procedure only.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Show default managers */}
+                    {employee && employee.managers && employee.managers.length > 0 && (
+                      <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                        <Label className="text-sm font-semibold">Default Managers (from Employee Profile)</Label>
+                        <div className="space-y-1">
+                          {employee.managers.map((manager) => {
+                            if (manager.isExternal && manager.externalName) {
+                              return (
+                                <div key={manager.level} className="text-sm text-muted-foreground">
+                                  Level {manager.level}: {manager.externalName} ({manager.externalEmail || "No email"})
+                                </div>
+                              )
+                            } else if (manager.employeeId) {
+                              const managerEmp = getEmployee(manager.employeeId)
+                              if (managerEmp) {
+                                return (
+                                  <div key={manager.level} className="text-sm text-muted-foreground">
+                                    Level {manager.level}: {managerEmp.firstName} {managerEmp.lastName} ({managerEmp.email})
+                                  </div>
+                                )
+                              }
+                            }
+                            return null
+                          })}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          If no managers are assigned below, the default managers will be used.
+                        </p>
+                      </div>
+                    )}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Managers</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addManagerLevel}
+                        >
+                          <IconPlus className="size-4 mr-1" />
+                          Add Level
+                        </Button>
+                      </div>
+                      {selectedManagers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No managers assigned. Click &apos;Add Level&apos; to assign managers.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {selectedManagers.map((managerLevel) => {
+                            const selectedEmployee = availableManagers.find(
+                              (m) => m.id === managerLevel.employeeId
+                            )
+                            const filteredManagers = getFilteredManagersForLevel(managerLevel.level)
+                            
+                            return (
+                              <div
+                                key={managerLevel.level}
+                                className="rounded-md border p-3 space-y-2"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline">
+                                      Level {managerLevel.level}
+                                    </Badge>
+                                    {managerLevel.level === 1 && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Primary
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    onClick={() => removeManagerLevel(managerLevel.level)}
+                                    className="h-6 w-6"
+                                  >
+                                    <IconX className="size-3" />
+                                  </Button>
+                                </div>
+                                <div className="space-y-3">
+                                  <ToggleGroup
+                                    type="single"
+                                    value={managerSourceType[managerLevel.level] || "existing"}
+                                    onValueChange={(value) => {
+                                      if (value) {
+                                        setManagerSourceType((prev) => ({ ...prev, [managerLevel.level]: value as "existing" | "external" }))
+                                        removeManagerFromLevel(managerLevel.level)
+                                      }
+                                    }}
+                                    className="w-full"
+                                  >
+                                    <ToggleGroupItem value="existing" className="flex-1">
+                                      Existing Employee
+                                    </ToggleGroupItem>
+                                    <ToggleGroupItem value="external" className="flex-1">
+                                      External Manager
+                                    </ToggleGroupItem>
+                                  </ToggleGroup>
+
+                                  {(!managerSourceType[managerLevel.level] || managerSourceType[managerLevel.level] === "existing") ? (
+                                    <>
+                                      <Combobox
+                                        inputValue={managerSearchValues[managerLevel.level] || ""}
+                                        onInputValueChange={(value) => {
+                                          setManagerSearchValues((prev) => ({
+                                            ...prev,
+                                            [managerLevel.level]: value || "",
+                                          }))
+                                          if (!value && selectedEmployee) {
+                                            removeManagerFromLevel(managerLevel.level)
+                                          }
+                                        }}
+                                        onValueChange={(value) => {
+                                          if (value) {
+                                            const selectedManager = availableManagers.find(
+                                              (m) => m.name === value
+                                            )
+                                            if (selectedManager && selectedEmployee?.id !== selectedManager.id) {
+                                              selectManagerForLevel(managerLevel.level, selectedManager.id)
+                                            }
+                                          }
+                                        }}
+                                      >
+                                        <ComboboxInput
+                                          placeholder={`Search for level ${managerLevel.level} manager...`}
+                                          showTrigger
+                                          showClear={!!selectedEmployee}
+                                          className="w-full"
+                                        />
+                                        <ComboboxContent>
+                                          <ComboboxList>
+                                            {filteredManagers.map((manager) => (
+                                              <ComboboxItem
+                                                key={manager.id}
+                                                value={manager.name}
+                                              >
+                                                <div className="flex flex-col">
+                                                  <span>{manager.name}</span>
+                                                  <span className="text-xs text-muted-foreground">
+                                                    {manager.email}
+                                                  </span>
+                                                </div>
+                                              </ComboboxItem>
+                                            ))}
+                                          </ComboboxList>
+                                        </ComboboxContent>
+                                      </Combobox>
+                                      {selectedEmployee && (
+                                        <div className="mt-2 rounded-md border bg-muted/30 p-3">
+                                          <div className="flex items-center gap-3">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                              <span className="text-sm font-semibold">
+                                                {selectedEmployee.name
+                                                  .split(" ")
+                                                  .map((n) => n[0])
+                                                  .join("")
+                                                  .toUpperCase()}
+                                              </span>
+                                            </div>
+                                            <div className="flex flex-col flex-1">
+                                              <span className="text-sm font-medium">
+                                                {selectedEmployee.name}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {selectedEmployee.email}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <Checkbox
+                                                id={`eval-responsible-${managerLevel.level}`}
+                                                checked={managerLevel.isEvaluationResponsible || false}
+                                                onCheckedChange={() => toggleEvaluationResponsible(managerLevel.level)}
+                                              />
+                                              <Label
+                                                htmlFor={`eval-responsible-${managerLevel.level}`}
+                                                className="text-xs cursor-pointer"
+                                              >
+                                                Evaluation Responsible
+                                              </Label>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                          <Label htmlFor={`external-name-${managerLevel.level}`}>
+                                            Manager Name
+                                          </Label>
+                                          <Input
+                                            id={`external-name-${managerLevel.level}`}
+                                            placeholder="Enter manager name"
+                                            value={managerLevel.externalName || ""}
+                                            onChange={(e) => {
+                                              updateExternalManager(
+                                                managerLevel.level,
+                                                e.target.value,
+                                                managerLevel.externalEmail || ""
+                                              )
+                                            }}
+                                            className="w-full"
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label htmlFor={`external-email-${managerLevel.level}`}>
+                                            Manager Email
+                                          </Label>
+                                          <Input
+                                            id={`external-email-${managerLevel.level}`}
+                                            type="email"
+                                            placeholder="Enter manager email"
+                                            value={managerLevel.externalEmail || ""}
+                                            onChange={(e) => {
+                                              updateExternalManager(
+                                                managerLevel.level,
+                                                managerLevel.externalName || "",
+                                                e.target.value
+                                              )
+                                            }}
+                                            className="w-full"
+                                          />
+                                        </div>
+                                      </div>
+                                      {(managerLevel.externalName || managerLevel.externalEmail) && (
+                                        <div className="mt-2 rounded-md border bg-muted/30 p-3">
+                                          <div className="flex items-center gap-3">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                              <span className="text-sm font-semibold">
+                                                {managerLevel.externalName
+                                                  ? managerLevel.externalName
+                                                      .split(" ")
+                                                      .map((n) => n[0])
+                                                      .join("")
+                                                      .toUpperCase()
+                                                  : "EM"}
+                                              </span>
+                                            </div>
+                                            <div className="flex flex-col flex-1">
+                                              <span className="text-sm font-medium">
+                                                {managerLevel.externalName || "External Manager"}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {managerLevel.externalEmail || "No email"}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <Checkbox
+                                                id={`eval-responsible-ext-${managerLevel.level}`}
+                                                checked={managerLevel.isEvaluationResponsible || false}
+                                                onCheckedChange={() => toggleEvaluationResponsible(managerLevel.level)}
+                                              />
+                                              <Label
+                                                htmlFor={`eval-responsible-ext-${managerLevel.level}`}
+                                                className="text-xs cursor-pointer"
+                                              >
+                                                Evaluation Responsible
+                                              </Label>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <SheetFooter className="flex items-center justify-between">
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    onClick={() => {
+                      // Clear overrides to use default managers
+                      setAssignments((prev) =>
+                        prev.map((assignment) =>
+                          assignment.id === editingAssignmentId
+                            ? {
+                                ...assignment,
+                                managerOverrides: undefined,
+                                updatedAt: new Date().toISOString(),
+                              }
+                            : assignment
+                        )
+                      )
+                      toast.success("Manager overrides cleared. Using default managers.")
+                      setIsEditManagerSheetOpen(false)
+                      setEditingAssignmentId(null)
+                      setSelectedManagers([])
+                      setManagerSearchValues({})
+                      setManagerSourceType({})
+                    }}
+                  >
+                    Reset to Default Managers
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={() => setIsEditManagerSheetOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSaveManagerChanges}>
+                      Save Changes
+                    </Button>
+                  </div>
+                </SheetFooter>
+              </div>
+            )
+          })()}
         </SheetContent>
       </Sheet>
     </div>

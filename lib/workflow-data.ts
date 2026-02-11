@@ -6,6 +6,8 @@ import type {
   WorkflowAssignment,
   EvaluationForm,
   Employee,
+  ReviewStage,
+  ManagerLevel,
 } from "./types"
 import { demoWorkflowTemplates } from "./data/demo-workflow-templates"
 import { demoEvaluationForms } from "./data/demo-evaluation-forms"
@@ -170,21 +172,27 @@ export function initializeWorkflowData(initialEmployees: Employee[] = []) {
           const previousStages = sortedAllowedStages.slice(0, stageIndex)
           const allPreviousCompleted = previousStages.every(prevStage => stageCompletions[prevStage.id]?.completed)
           
+          // Check if required stages (dependencies) are completed
+          const requiredStagesCompleted = stage.requiredStageIds
+            ? stage.requiredStageIds.every(requiredStageId => stageCompletions[requiredStageId]?.completed)
+            : true // If no dependencies, consider it satisfied
+          
           // Only mark as completed if:
-          // 1. All previous stages are completed (sequential requirement)
-          // 2. AND either:
+          // 1. All previous stages (by order) are completed (sequential requirement)
+          // 2. All required stages (dependencies) are completed
+          // 3. AND either:
           //    - Workflow is fully completed, OR
-          //    - Workflow is in progress and this stage should be completed (random chance, but only if previous stages are done)
+          //    - Workflow is in progress and this stage should be completed (random chance, but only if dependencies are satisfied)
           let isCompleted = false
           if (status === "completed") {
             // If workflow is completed, all stages should be completed
             isCompleted = true
-          } else if (status === "in_progress" && allPreviousCompleted) {
-            // Only mark as completed if all previous stages are done
+          } else if (status === "in_progress" && allPreviousCompleted && requiredStagesCompleted) {
+            // Only mark as completed if all previous stages and required dependencies are done
             // Randomly complete stages in sequence (70% chance for each stage)
             isCompleted = Math.random() > 0.3
           }
-          // If status is "not_started" or previous stages aren't completed, isCompleted remains false
+          // If status is "not_started" or dependencies aren't satisfied, isCompleted remains false
           
           // Determine who completed this stage
           let completedBy: string | undefined
@@ -220,8 +228,21 @@ export function initializeWorkflowData(initialEmployees: Employee[] = []) {
           }
         })
         
-        // Find current stage (first incomplete stage from allowed stages)
-        const currentStage = allowedStages.find((stage) => !stageCompletions[stage.id]?.completed)
+        // Helper function to check if a stage can be started (all dependencies are satisfied)
+        const canStageBeStarted = (stage: ReviewStage): boolean => {
+          // Check if required stages (dependencies) are completed
+          if (stage.requiredStageIds && stage.requiredStageIds.length > 0) {
+            return stage.requiredStageIds.every(requiredStageId => stageCompletions[requiredStageId]?.completed)
+          }
+          return true // If no dependencies, stage can be started
+        }
+        
+        // Find current stage (first incomplete stage from allowed stages that has all dependencies satisfied)
+        const currentStage = allowedStages.find((stage) => {
+          const isCompleted = stageCompletions[stage.id]?.completed
+          const canStart = canStageBeStarted(stage)
+          return !isCompleted && canStart
+        })
         
         const assignment: WorkflowAssignment = {
           id: `assignment-${employee.id}-${workflowId}-${index}`,
@@ -251,6 +272,44 @@ export function initializeWorkflowData(initialEmployees: Employee[] = []) {
 // Helper functions
 export function getWorkflowTemplate(id: string): WorkflowTemplate | undefined {
   return workflowTemplates.find((w) => w.id === id)
+}
+
+/**
+ * Check if a stage can be started based on its dependencies
+ * @param stage - The stage to check
+ * @param assignment - The workflow assignment containing stage completions
+ * @returns true if all required stages are completed, false otherwise
+ */
+export function canStageBeStarted(
+  stage: ReviewStage,
+  assignment: WorkflowAssignment
+): boolean {
+  // If stage has no dependencies, it can be started
+  if (!stage.requiredStageIds || stage.requiredStageIds.length === 0) {
+    return true
+  }
+  
+  // Check if all required stages are completed
+  return stage.requiredStageIds.every(
+    (requiredStageId) => assignment.stageCompletions[requiredStageId]?.completed
+  )
+}
+
+/**
+ * Get effective managers for a workflow assignment
+ * Checks assignment-specific manager overrides first, then falls back to employee's default managers
+ * @param assignment - The workflow assignment
+ * @returns Array of ManagerLevel objects
+ */
+export function getEffectiveManagers(assignment: WorkflowAssignment): ManagerLevel[] {
+  // If assignment has manager overrides, use those
+  if (assignment.managerOverrides && assignment.managerOverrides.length > 0) {
+    return assignment.managerOverrides
+  }
+  
+  // Otherwise, use employee's default managers
+  const employee = getEmployee(assignment.employeeId)
+  return employee?.managers || []
 }
 
 export function getWorkflowAssignmentsForEmployee(

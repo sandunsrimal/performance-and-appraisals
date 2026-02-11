@@ -6,6 +6,7 @@ export type ManagerLevel = {
   externalName?: string
   externalEmail?: string
   isExternal?: boolean
+  isEvaluationResponsible?: boolean
 }
 
 export type Employee = {
@@ -108,6 +109,7 @@ export type ReviewStage = {
   dueDateOffset?: number // Days offset (negative for before, 0 for on, positive for after)
   dueDateUnit?: "days" | "weeks" | "months" // Unit for offset (only for custom)
   required: boolean
+  requiredStageIds?: string[] // IDs of stages that must be completed before this stage can proceed (e.g., meeting requires both employee and manager evaluation forms)
   reminderSettings?: {
     enabled: boolean
     reminderDays: number // Days before due date to send reminder (e.g., 7 for 7 days before)
@@ -148,6 +150,7 @@ export type WorkflowAssignment = {
     formData?: Record<string, unknown>
   }>
   meetings: WorkflowMeeting[]
+  managerOverrides?: ManagerLevel[] // Assignment-specific manager overrides (takes precedence over employee's managers)
   createdAt: string
   updatedAt: string
 }
@@ -194,4 +197,36 @@ export type Appraisal = {
   comments: string
   createdAt: string
   updatedAt: string
+}
+
+// Notification Types
+export type NotificationCategory = 
+  | "evaluation_pending"
+  | "evaluation_completed"
+  | "action_required"
+  | "meeting_scheduled"
+  | "meeting_reminder"
+  | "form_due"
+  | "form_overdue"
+  | "stage_completed"
+  | "assignment_created"
+  | "system"
+
+export type Notification = {
+  id: string
+  userId: string // User who should receive this notification
+  category: NotificationCategory
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+  link?: string // Optional link to relevant page
+  metadata?: {
+    assignmentId?: string
+    stageId?: string
+    employeeId?: string
+    meetingId?: string
+    formId?: string
+    [key: string]: unknown
+  }
 }

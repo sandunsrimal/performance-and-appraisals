@@ -75,6 +75,7 @@ import {
   getEmployee,
   initializeWorkflowData,
   getEvaluationForm,
+  getEffectiveManagers,
 } from "@/lib/workflow-data"
 import { useRole } from "@/lib/role-context"
 
@@ -174,13 +175,16 @@ const convertAssignmentsToTasks = (
     const sortedStages = [...template.stages].sort((a, b) => a.order - b.order)
 
     sortedStages.forEach((stage) => {
+      // Get effective managers for this assignment (overrides or employee's managers)
+      const effectiveManagers = getEffectiveManagers(assignment)
+      
       // Role-based filtering: Managers (excluding admin) only see their own tasks and tasks where they're involved
       if (currentRole === "manager" && currentEmployeeId && currentEmployeeId !== "admin-1") {
         // Check if current user is the employee for this assignment
         const isCurrentUserEmployee = assignment.employeeId === currentEmployeeId
         
         // Check if current user manages this employee
-        const currentUserManagesEmployee = employee.managers?.some(
+        const currentUserManagesEmployee = effectiveManagers.some(
           (m) => m.employeeId === currentEmployeeId
         )
 
@@ -195,9 +199,9 @@ const convertAssignmentsToTasks = (
             stage.attendees.forEach((attendee) => {
               if (attendee.startsWith("manager_level_")) {
                 const levelMatch = attendee.match(/manager_level_(\d+)/)
-                if (levelMatch && employee.managers) {
+                if (levelMatch && effectiveManagers.length > 0) {
                   const level = Number.parseInt(levelMatch[1], 10)
-                  const manager = employee.managers.find((m) => m.level === level)
+                  const manager = effectiveManagers.find((m) => m.level === level)
                   if (manager?.employeeId === currentEmployeeId) {
                     isCurrentUserInvolved = true
                   }
@@ -220,7 +224,7 @@ const convertAssignmentsToTasks = (
       // Exception: Managers can see approval stages even if not in stageCompletions yet
       if (currentRole !== "admin" && currentRole !== undefined) {
         const isApprovalStage = stage.type === "approval"
-        const isManagerViewingRelatedTask = currentRole === "manager" && currentEmployeeId && currentEmployeeId !== "admin-1" && employee.managers?.some((m) => m.employeeId === currentEmployeeId)
+        const isManagerViewingRelatedTask = currentRole === "manager" && currentEmployeeId && currentEmployeeId !== "admin-1" && effectiveManagers.some((m) => m.employeeId === currentEmployeeId)
         
         // Skip if stage not in completions, unless it's an approval stage for a manager
         if (!(stage.id in assignment.stageCompletions) && !(isApprovalStage && isManagerViewingRelatedTask)) {
@@ -253,7 +257,7 @@ const convertAssignmentsToTasks = (
         ? getEvaluationForm(stage.evaluationFormId)
         : null
 
-      // Format attendees
+      // Format attendees - use effective managers (assignment overrides or employee's managers)
       const attendees: string[] = []
       if (stage.attendees) {
         stage.attendees.forEach((attendee) => {
@@ -261,9 +265,9 @@ const convertAssignmentsToTasks = (
             attendees.push(`${employee.firstName} ${employee.lastName}`)
           } else {
             const levelMatch = attendee.match(/manager_level_(\d+)/)
-            if (levelMatch && employee.managers) {
+            if (levelMatch && effectiveManagers.length > 0) {
               const level = parseInt(levelMatch[1], 10)
-              const manager = employee.managers.find((m) => m.level === level)
+              const manager = effectiveManagers.find((m) => m.level === level)
               if (manager) {
                 if (manager.isExternal && manager.externalName) {
                   attendees.push(

@@ -79,7 +79,8 @@ import {
   getWorkflowTemplate,
   getEmployee,
   initializeWorkflowData,
-  getEvaluationForm
+  getEvaluationForm,
+  getEffectiveManagers,
 } from "@/lib/workflow-data"
 import { useRole } from "@/lib/role-context"
 import { getTaskContext, formatTaskContextDisplay } from "@/lib/employee-role-utils"
@@ -108,6 +109,8 @@ type Task = {
   contextTitle?: string
   contextSubtitle?: string
   contextBadge?: string
+  // Dependency information
+  blockedByStages?: string[] // Names of stages that must be completed before this task can start
 }
 
 // Helper function to calculate due date from step configuration
@@ -527,12 +530,33 @@ const convertAssignmentsToTasks = (
         assignment.endDate
       )
 
+      // Check if required stages (dependencies) are completed
+      let blockedByStages: string[] | undefined = undefined
+      const canStart = stage.requiredStageIds
+        ? stage.requiredStageIds.every(
+            (requiredStageId) => assignment.stageCompletions[requiredStageId]?.completed
+          )
+        : true // If no dependencies, can start
+      
+      // If blocked, get names of incomplete required stages
+      if (!canStart && stage.requiredStageIds) {
+        blockedByStages = stage.requiredStageIds
+          .filter((requiredStageId) => !assignment.stageCompletions[requiredStageId]?.completed)
+          .map((requiredStageId) => {
+            const requiredStage = template.stages.find((s) => s.id === requiredStageId)
+            return requiredStage?.name || requiredStageId
+          })
+      }
+
       // Determine task status
       let status: Task["status"] = "pending"
       if (assignment.status === "cancelled") {
         status = "cancelled"
       } else if (isCompleted) {
         status = "completed"
+      } else if (!canStart) {
+        // Task is blocked because dependencies are not met
+        status = "pending" // Keep as pending but we'll show a message
       } else if (dueDate && isBefore(dueDate, now) && !isCompleted) {
         status = "overdue"
       } else if (assignment.currentStageId === stage.id) {
@@ -544,7 +568,8 @@ const convertAssignmentsToTasks = (
         ? getEvaluationForm(stage.evaluationFormId)
         : null
 
-      // Format attendees
+      // Format attendees - use effective managers (assignment overrides or employee's managers)
+      const effectiveManagers = getEffectiveManagers(assignment)
       const attendees: string[] = []
       if (stage.attendees) {
         stage.attendees.forEach((attendee) => {
@@ -552,9 +577,9 @@ const convertAssignmentsToTasks = (
             attendees.push(`${employee.firstName} ${employee.lastName}`)
           } else {
             const levelMatch = attendee.match(/manager_level_(\d+)/)
-            if (levelMatch && employee.managers) {
+            if (levelMatch && effectiveManagers.length > 0) {
               const level = Number.parseInt(levelMatch[1], 10)
-              const manager = employee.managers.find((m) => m.level === level)
+              const manager = effectiveManagers.find((m) => m.level === level)
               if (manager) {
                 if (manager.isExternal && manager.externalName) {
                   attendees.push(
@@ -584,6 +609,7 @@ const convertAssignmentsToTasks = (
         stepName: stage.name,
         stepDescription: stage.description || "",
         stepType: stage.type,
+        blockedByStages,
         status,
         dueDate,
         completedDate: completion?.completedDate || null,
@@ -607,7 +633,8 @@ const convertAssignmentsToTasks = (
       const isAdminEmployee = assignment.employeeId === currentEmployeeId
       
       // Check if admin manages this employee
-      const adminManagesEmployee = employee.managers?.some(
+      const effectiveManagers = getEffectiveManagers(assignment)
+      const adminManagesEmployee = effectiveManagers.some(
         (m) => m.employeeId === currentEmployeeId
       )
 
@@ -631,9 +658,9 @@ const convertAssignmentsToTasks = (
           stage.attendees.forEach((attendee) => {
             if (attendee.startsWith("manager_level_")) {
               const levelMatch = attendee.match(/manager_level_(\d+)/)
-              if (levelMatch && employee.managers) {
+              if (levelMatch && effectiveManagers.length > 0) {
                 const level = Number.parseInt(levelMatch[1], 10)
-                const manager = employee.managers.find((m) => m.level === level)
+                const manager = effectiveManagers.find((m) => m.level === level)
                 if (manager?.employeeId === currentEmployeeId) {
                   isAdminInvolved = true
                 }
@@ -670,7 +697,8 @@ const convertAssignmentsToTasks = (
     // MANAGER ROLE: Only show tasks for employees they manage
     if (currentRole === "manager") {
       // Check if current user manages this employee
-      const currentUserManagesEmployee = employee.managers?.some(
+      const effectiveManagers = getEffectiveManagers(assignment)
+      const currentUserManagesEmployee = effectiveManagers.some(
         (m) => m.employeeId === currentEmployeeId
       )
 
@@ -687,9 +715,9 @@ const convertAssignmentsToTasks = (
           stage.attendees.forEach((attendee) => {
             if (attendee.startsWith("manager_level_")) {
               const levelMatch = attendee.match(/manager_level_(\d+)/)
-              if (levelMatch && employee.managers) {
+              if (levelMatch && effectiveManagers.length > 0) {
                 const level = Number.parseInt(levelMatch[1], 10)
-                const manager = employee.managers.find((m) => m.level === level)
+                const manager = effectiveManagers.find((m) => m.level === level)
                 if (manager?.employeeId === currentEmployeeId) {
                   isCurrentUserInvolved = true
                 }
@@ -918,6 +946,23 @@ function DraggableTaskCard({
                 Overdue
               </Badge>
             )}
+          </div>
+        )}
+
+        {/* Blocked Dependencies Warning */}
+        {task.blockedByStages && task.blockedByStages.length > 0 && (
+          <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
+            <IconAlertCircle className="size-4 text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-amber-900">
+                Waiting for required stages to complete:
+              </p>
+              <ul className="text-xs text-amber-700 mt-1 list-disc list-inside">
+                {task.blockedByStages.map((stageName, idx) => (
+                  <li key={idx}>{stageName}</li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
 

@@ -34,6 +34,7 @@ import {
   getEmployee,
   workflowAssignments,
   initializeWorkflowData,
+  getEffectiveManagers,
 } from "@/lib/workflow-data"
 import { demoEmployees } from "@/lib/data/demo-employees"
 
@@ -99,14 +100,15 @@ export default function MeetingJoinPage({
 
     setEmployee(employeeData)
 
-    // Get manager name from stage attendees
-    if (stageData.attendees && employeeData.managers) {
+    // Get manager name from stage attendees - use effective managers (assignment overrides or employee's managers)
+    const effectiveManagers = getEffectiveManagers(assignmentData)
+    if (stageData.attendees && effectiveManagers.length > 0) {
       stageData.attendees.forEach((attendee) => {
         if (attendee.startsWith("manager_level_")) {
           const levelMatch = attendee.match(/manager_level_(\d+)/)
           if (levelMatch) {
             const level = Number.parseInt(levelMatch[1], 10)
-            const manager = employeeData.managers?.find((m) => m.level === level)
+            const manager = effectiveManagers.find((m) => m.level === level)
             if (manager) {
               if (manager.isExternal && manager.externalName) {
                 setManagerName(manager.externalName)
@@ -203,17 +205,18 @@ export default function MeetingJoinPage({
     | { meetingNotes?: string; meetingEndedAt?: string }
     | undefined
 
-  // Get meeting attendees
+  // Get meeting attendees - use effective managers (assignment overrides or employee's managers)
+  const effectiveManagers = getEffectiveManagers(assignment)
   const attendees: string[] = []
   if (stage.attendees) {
     stage.attendees.forEach((attendee) => {
       if (attendee === "employee") {
         attendees.push(`${employee.firstName} ${employee.lastName}`)
-      } else if (attendee.startsWith("manager_level_") && employee.managers) {
+      } else if (attendee.startsWith("manager_level_") && effectiveManagers.length > 0) {
         const levelMatch = attendee.match(/manager_level_(\d+)/)
         if (levelMatch) {
           const level = Number.parseInt(levelMatch[1], 10)
-          const manager = employee.managers.find((m) => m.level === level)
+          const manager = effectiveManagers.find((m) => m.level === level)
           if (manager) {
             if (manager.isExternal && manager.externalName) {
               attendees.push(manager.externalName)

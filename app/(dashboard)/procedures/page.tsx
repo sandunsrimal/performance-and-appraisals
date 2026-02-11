@@ -109,6 +109,13 @@ const frequencyOptions: { value: FrequencyType; label: string }[] = [
 ]
 
 // Department to positions mapping (same as employees page)
+// Manager type for procedures
+type ProcedureManager = {
+  id: string
+  fullName: string
+  email: string
+}
+
 const departmentPositions: Record<string, string[]> = {
   Engineering: [
     "Software Engineer",
@@ -204,6 +211,7 @@ export default function ProceduresPage() {
     attendees: [],
     dueDateType: "on_interval",
     dueDateOffset: 0,
+    requiredStageIds: [],
     reminderSettings: {
       enabled: true,
       reminderDays: 7,
@@ -215,6 +223,11 @@ export default function ProceduresPage() {
   // Search values for comboboxes
   const [positionSearchValue, setPositionSearchValue] = React.useState("")
   const [departmentSearchValue, setDepartmentSearchValue] = React.useState("")
+
+  // Managers state
+  const [managers, setManagers] = React.useState<ProcedureManager[]>([])
+  const [newManagerName, setNewManagerName] = React.useState("")
+  const [newManagerEmail, setNewManagerEmail] = React.useState("")
 
   // Initialize data
   React.useEffect(() => {
@@ -299,7 +312,7 @@ export default function ProceduresPage() {
       updatedAt: new Date().toISOString(),
     }
     setTemplates((prev) => [...prev, newTemplate])
-      toast.success("Procedure duplicated successfully!")
+      toast.success("Procedure template duplicated successfully!")
   }, [])
 
   // Handle delete
@@ -311,7 +324,7 @@ export default function ProceduresPage() {
   const confirmDelete = React.useCallback(() => {
     if (templateToDelete) {
       setTemplates((prev) => prev.filter((t) => t.id !== templateToDelete))
-      toast.success("Procedure deleted successfully!")
+      toast.success("Procedure template deleted successfully!")
       setTemplateToDelete(null)
     }
     setDeleteDialogOpen(false)
@@ -320,7 +333,7 @@ export default function ProceduresPage() {
   // Add step
   const addStep = () => {
     if (!currentStep.name) {
-      toast.error("Please enter a stage name")
+      toast.error("Please enter a step name")
       return
     }
 
@@ -342,6 +355,9 @@ export default function ProceduresPage() {
       dueDateOffset: currentStep.dueDateOffset,
       dueDateUnit: currentStep.dueDateUnit,
       required: currentStep.required ?? true,
+      requiredStageIds: currentStep.requiredStageIds && currentStep.requiredStageIds.length > 0 
+        ? currentStep.requiredStageIds 
+        : undefined,
       reminderSettings: currentStep.reminderSettings || {
         enabled: true,
         reminderDays: 7,
@@ -362,13 +378,14 @@ export default function ProceduresPage() {
       attendees: [],
       dueDateType: "on_interval",
       dueDateOffset: 0,
+      requiredStageIds: [],
       reminderSettings: {
         enabled: true,
         reminderDays: 7,
         channels: ["email", "in-app"],
       },
     })
-    toast.success("Review stage added successfully!")
+    toast.success("Review step added successfully!")
   }
 
   // Remove step
@@ -377,6 +394,38 @@ export default function ProceduresPage() {
       ...prev,
       stages: prev.stages?.filter((s) => s.id !== stepId).map((s, index) => ({ ...s, order: index + 1 })) || [],
     }))
+  }
+
+  // Add manager
+  const addManager = () => {
+    if (!newManagerName.trim() || !newManagerEmail.trim()) {
+      toast.error("Please enter both manager name and email")
+      return
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(newManagerEmail.trim())) {
+      toast.error("Please enter a valid email address")
+      return
+    }
+
+    const newManager: ProcedureManager = {
+      id: `manager-${Date.now()}`,
+      fullName: newManagerName.trim(),
+      email: newManagerEmail.trim(),
+    }
+
+    setManagers((prev) => [...prev, newManager])
+    setNewManagerName("")
+    setNewManagerEmail("")
+    toast.success("Manager added successfully!")
+  }
+
+  // Remove manager
+  const removeManager = (managerId: string) => {
+    setManagers((prev) => prev.filter((m) => m.id !== managerId))
+    toast.success("Manager removed successfully!")
   }
 
 
@@ -414,10 +463,10 @@ export default function ProceduresPage() {
 
     if (editingTemplateId) {
       setTemplates((prev) => prev.map((t) => (t.id === editingTemplateId ? template : t)))
-      toast.success("Procedure updated successfully!")
+      toast.success("Procedure template updated successfully!")
     } else {
       setTemplates((prev) => [...prev, template])
-      toast.success("Procedure created successfully!")
+      toast.success("Procedure template created successfully!")
     }
 
     setIsSheetOpen(false)
@@ -446,6 +495,9 @@ export default function ProceduresPage() {
     })
     setPositionSearchValue("")
     setDepartmentSearchValue("")
+    setManagers([])
+    setNewManagerName("")
+    setNewManagerEmail("")
   }
 
   // Columns
@@ -454,10 +506,12 @@ export default function ProceduresPage() {
       {
         accessorKey: "name",
         header: "Procedure Name",
+        size: 200,
+        maxSize: 300,
         cell: ({ row }) => (
-          <div>
-            <div className="font-medium">{row.original.name}</div>
-            <div className="text-sm text-muted-foreground">{row.original.description}</div>
+          <div className="max-w-[200px]">
+            <div className="font-medium truncate">{row.original.name}</div>
+            <div className="text-sm text-muted-foreground truncate">{row.original.description}</div>
           </div>
         ),
       },
@@ -481,9 +535,9 @@ export default function ProceduresPage() {
       },
       {
         accessorKey: "stages",
-        header: "Review Stages",
+        header: "Review Steps",
         cell: ({ row }) => (
-          <span className="text-sm">{row.original.stages.length} {row.original.stages.length === 1 ? "stage" : "stages"}</span>
+          <span className="text-sm">{row.original.stages.length} {row.original.stages.length === 1 ? "step" : "steps"}</span>
         ),
       },
       {
@@ -571,9 +625,9 @@ export default function ProceduresPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 lg:px-6">
         <div>
-          <h2 className="text-2xl font-semibold">Procedures</h2>
+          <h2 className="text-2xl font-semibold">Procedure Templates</h2>
           <p className="text-muted-foreground mt-2">
-            Create and manage customizable appraisal procedures for different roles and positions.
+            Create and manage customizable procedure templates for different roles and positions.
           </p>
         </div>
         <Sheet open={isSheetOpen} onOpenChange={(open) => {
@@ -589,16 +643,16 @@ export default function ProceduresPage() {
               resetForm()
             }}>
               <IconPlus className="size-4 mr-2" />
-              Create Procedure
+              Create Procedure Template
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-full! max-w-full! md:w-[70vw]! md:max-w-[70vw]! lg:w-[50vw]! lg:max-w-[50vw]! overflow-y-auto px-8 py-4">
             <SheetHeader>
               <SheetTitle>
-                {editingTemplateId ? "Edit Procedure" : "Create New Procedure"}
+                {editingTemplateId ? "Edit Procedure Template" : "Create New Procedure Template"}
               </SheetTitle>
               <SheetDescription>
-                Configure a customizable appraisal procedure with steps, meetings, and notifications.
+                Configure a customizable procedure template with steps, meetings, and notifications.
               </SheetDescription>
             </SheetHeader>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -909,31 +963,150 @@ export default function ProceduresPage() {
                       Add Manager Level
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      Add or remove manager levels. These will appear as attendee options when creating review stages.
+                      Add or remove manager levels. These will appear as attendee options when creating review steps.
                     </p>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Managers List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Managers</CardTitle>
+                  <CardDescription>
+                    Add and manage a list of managers with their full names and email addresses for this procedure.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Add Manager Form */}
+                  <div className="border rounded-lg p-4 space-y-4">
+                    <h4 className="font-medium">Add New Manager</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="manager-name">
+                          Full Name <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id="manager-name"
+                          value={newManagerName}
+                          onChange={(e) => setNewManagerName(e.target.value)}
+                          placeholder="Enter manager's full name"
+                          className="w-full"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault()
+                              addManager()
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="manager-email">
+                          Email Address <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id="manager-email"
+                          type="email"
+                          value={newManagerEmail}
+                          onChange={(e) => setNewManagerEmail(e.target.value)}
+                          placeholder="Enter manager's email"
+                          className="w-full"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault()
+                              addManager()
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={addManager}
+                      className="w-full"
+                      disabled={!newManagerName.trim() || !newManagerEmail.trim()}
+                    >
+                      <IconPlus className="size-4 mr-2" />
+                      Add Manager
+                    </Button>
+                  </div>
+
+                  {/* Managers List */}
+                  {managers.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-semibold">
+                          Managers ({managers.length})
+                        </Label>
+                      </div>
+                      <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-2 bg-muted/30">
+                        {managers.map((manager) => (
+                          <div
+                            key={manager.id}
+                            className="flex items-center justify-between p-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+                                  <span className="text-sm font-semibold">
+                                    {manager.fullName
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .join("")
+                                      .toUpperCase()
+                                      .slice(0, 2)}
+                                  </span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">
+                                    {manager.fullName}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {manager.email}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeManager(manager.id)}
+                              className="shrink-0 text-muted-foreground hover:text-destructive"
+                            >
+                              <IconX className="size-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/30">
+                      <p className="text-sm">No managers added yet. Add managers using the form above.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
               {/* Review Stages */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Review Stages</CardTitle>
-                  <CardDescription>
-                    Define the review stages in this procedure (evaluations, meetings, reviews, etc.)
+                  <CardTitle>Review Steps</CardTitle>
+                    <CardDescription>
+                    Define the review steps in this procedure (reviews, meetings, approvals, etc.)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Add Review Stage Form */}
                   <div className="border rounded-lg p-4 space-y-4">
-                    <h4 className="font-medium">Add New Review Stage</h4>
+                    <h4 className="font-medium">Add New Review Step</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Step Name *</Label>
                         <Input
                           value={currentStep.name}
                           onChange={(e) => setCurrentStep((prev) => ({ ...prev, name: e.target.value }))}
-                          placeholder="e.g., Self Evaluation"
+                          placeholder="e.g., Self Review"
                           className="w-full"
                         />
                       </div>
@@ -949,7 +1122,7 @@ export default function ProceduresPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="evaluation">Evaluation</SelectItem>
+                            <SelectItem value="evaluation">Review</SelectItem>
                             <SelectItem value="meeting">Meeting</SelectItem>
                             <SelectItem value="review">Review</SelectItem>
                             <SelectItem value="approval">Approval</SelectItem>
@@ -962,7 +1135,7 @@ export default function ProceduresPage() {
                       <Textarea
                         value={currentStep.description}
                         onChange={(e) => setCurrentStep((prev) => ({ ...prev, description: e.target.value }))}
-                        placeholder="Review stage description..."
+                        placeholder="Review step description..."
                         rows={2}
                         className="w-full"
                       />
@@ -1103,7 +1276,7 @@ export default function ProceduresPage() {
                         </p>
                       </div>
                       <div className="space-y-2">
-                        <Label>Evaluation Form</Label>
+                        <Label>Review Form</Label>
                         <Select
                           value={currentStep.evaluationFormId || ""}
                           onValueChange={(value) =>
@@ -1121,6 +1294,47 @@ export default function ProceduresPage() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Required Steps (Dependencies)</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Select steps that must be completed before this step can proceed. For example, a meeting may require both employee and manager review forms to be completed.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.stages
+                          ?.filter((s) => s.id !== currentStep.id) // Exclude current stage from dependencies
+                          .map((stage) => {
+                            const isSelected = currentStep.requiredStageIds?.includes(stage.id) ?? false
+                            return (
+                              <div key={stage.id} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`required-stage-${stage.id}`}
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) => {
+                                    const current = currentStep.requiredStageIds || []
+                                    setCurrentStep((prev) => ({
+                                      ...prev,
+                                      requiredStageIds: checked
+                                        ? [...current, stage.id]
+                                        : current.filter((id) => id !== stage.id),
+                                    }))
+                                  }}
+                                />
+                                <Label
+                                  htmlFor={`required-stage-${stage.id}`}
+                                  className="cursor-pointer text-sm"
+                                >
+                                  {stage.name}
+                                </Label>
+                              </div>
+                            )
+                          })}
+                        {(!formData.stages || formData.stages.length === 0 || formData.stages.length === 1) && (
+                          <p className="text-xs text-muted-foreground italic">
+                            Add more steps to set dependencies
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1227,9 +1441,9 @@ export default function ProceduresPage() {
                   {formData.stages && formData.stages.length > 0 && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-base">Review Stages</h4>
+                        <h4 className="font-semibold text-base">Review Steps</h4>
                         <Badge variant="secondary" className="text-xs">
-                          {formData.stages.length} {formData.stages.length === 1 ? "stage" : "stages"}
+                          {formData.stages.length} {formData.stages.length === 1 ? "step" : "steps"}
                         </Badge>
                       </div>
                       
@@ -1242,6 +1456,21 @@ export default function ProceduresPage() {
                           {formData.stages
                             .sort((a, b) => a.order - b.order)
                             .map((step) => {
+                            // Get step type label for display
+                            const getStepTypeLabel = (type: string) => {
+                              switch (type) {
+                                case "evaluation":
+                                  return "Review"
+                                case "meeting":
+                                  return "Meeting"
+                                case "review":
+                                  return "Review"
+                                case "approval":
+                                  return "Approval"
+                                default:
+                                  return type
+                              }
+                            }
                             // Get step type icon
                             const getStepTypeIcon = () => {
                               switch (step.type) {
@@ -1317,7 +1546,7 @@ export default function ProceduresPage() {
                                               className={`${getStepTypeColor()} flex items-center gap-1.5 capitalize`}
                                             >
                                               {getStepTypeIcon()}
-                                              {step.type}
+                                              {getStepTypeLabel(step.type)}
                                             </Badge>
                                             {step.required && (
                                               <Badge variant="destructive" className="text-xs">
@@ -1490,7 +1719,7 @@ export default function ProceduresPage() {
                   Cancel
                 </Button>
                 <Button type="submit">
-                  {editingTemplateId ? "Update Procedure" : "Create Procedure"}
+                  {editingTemplateId ? "Update Procedure Template" : "Create Procedure Template"}
                 </Button>
               </SheetFooter>
             </form>
@@ -1504,7 +1733,7 @@ export default function ProceduresPage() {
           <div className="relative flex-1 max-w-sm">
             <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              placeholder="Search procedures..."
+              placeholder="Search procedure templates..."
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
               className="pl-9"
@@ -1525,7 +1754,7 @@ export default function ProceduresPage() {
         </div>
       </div>
 
-      {/* Procedures Table */}
+      {/* Procedure Templates Table */}
       <div className="px-4 lg:px-6">
         <div className="overflow-hidden rounded-lg border">
           <Table>
@@ -1573,7 +1802,7 @@ export default function ProceduresPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-24 text-center">
-                    No procedures found. Create your first procedure to get started.
+                    No procedure templates found. Create your first procedure template to get started.
                   </TableCell>
                 </TableRow>
               )}
@@ -1589,7 +1818,7 @@ export default function ProceduresPage() {
               (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
               filteredTemplates.length
             )}{" "}
-            of {filteredTemplates.length} procedures
+            of {filteredTemplates.length} procedure templates
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -1640,10 +1869,10 @@ export default function ProceduresPage() {
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-4">
           <SheetHeader>
             <SheetTitle>
-              {selectedTemplateForView?.name || "Review Stages"}
+              {selectedTemplateForView?.name || "Review Steps"}
             </SheetTitle>
             <SheetDescription>
-              {selectedTemplateForView?.description || "View all review stages in this procedure"}
+              {selectedTemplateForView?.description || "View all review steps in this procedure"}
             </SheetDescription>
           </SheetHeader>
 
@@ -1672,9 +1901,9 @@ export default function ProceduresPage() {
               {selectedTemplateForView.stages && selectedTemplateForView.stages.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-base">Review Stages</h4>
+                    <h4 className="font-semibold text-base">Review Steps</h4>
                     <Badge variant="secondary" className="text-xs">
-                      {selectedTemplateForView.stages.length} {selectedTemplateForView.stages.length === 1 ? "stage" : "stages"}
+                      {selectedTemplateForView.stages.length} {selectedTemplateForView.stages.length === 1 ? "step" : "steps"}
                     </Badge>
                   </div>
                   
@@ -1687,6 +1916,21 @@ export default function ProceduresPage() {
                       {selectedTemplateForView.stages
                         .sort((a, b) => a.order - b.order)
                         .map((step) => {
+                        // Get step type label for display
+                        const getStepTypeLabel = (type: string) => {
+                          switch (type) {
+                            case "evaluation":
+                              return "Review"
+                            case "meeting":
+                              return "Meeting"
+                            case "review":
+                              return "Review"
+                            case "approval":
+                              return "Approval"
+                            default:
+                              return type
+                          }
+                        }
                         // Get step type icon
                         const getStepTypeIcon = () => {
                           switch (step.type) {
@@ -1762,7 +2006,7 @@ export default function ProceduresPage() {
                                           className={`${getStepTypeColor()} flex items-center gap-1.5 capitalize`}
                                         >
                                           {getStepTypeIcon()}
-                                          {step.type}
+                                          {getStepTypeLabel(step.type)}
                                         </Badge>
                                         {step.required && (
                                           <Badge variant="destructive" className="text-xs">

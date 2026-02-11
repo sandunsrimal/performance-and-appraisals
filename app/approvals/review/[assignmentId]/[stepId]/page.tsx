@@ -32,6 +32,7 @@ import {
   workflowAssignments,
   initializeWorkflowData,
   getEvaluationForm,
+  getEffectiveManagers,
 } from "@/lib/workflow-data"
 import { demoEmployees } from "@/lib/data/demo-employees"
 import { type ReviewStage } from "@/lib/types"
@@ -96,15 +97,16 @@ export default function ApprovalReviewPage({
 
     setEmployee(employeeData)
 
-    // Get manager name from step attendees
-    if (stepData.attendees && employeeData.managers) {
+    // Get manager name from step attendees - use effective managers (assignment overrides or employee's managers)
+    const effectiveManagers = getEffectiveManagers(assignmentData)
+    if (stepData.attendees && effectiveManagers.length > 0) {
       const managerLevelRegex = /manager_level_(\d+)/
       stepData.attendees.forEach((attendee) => {
         if (attendee.startsWith("manager_level_")) {
           const levelMatch = managerLevelRegex.exec(attendee)
-          if (levelMatch && employeeData.managers) {
+          if (levelMatch) {
             const level = Number.parseInt(levelMatch[1], 10)
-            const manager = employeeData.managers.find((m) => m.level === level)
+            const manager = effectiveManagers.find((m) => m.level === level)
             if (manager) {
               if (manager.isExternal && manager.externalName) {
                 setManagerName(manager.externalName)

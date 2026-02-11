@@ -15,6 +15,7 @@ import {
   IconReportAnalytics,
   IconChecklist,
   IconSettings,
+  IconBell,
 } from "@tabler/icons-react"
 
 import { NavUser } from "@/components/nav-user"
@@ -59,13 +60,13 @@ const allMenuItems = [
     roles: ["admin", "employee", "manager"] as UserRole[],
   },
   {
-    title: "Templates",
+    title: "Form Templates",
     icon: IconTemplate,
     url: "/templates",
     roles: ["admin"] as UserRole[],
   },
   {
-    title: "Procedures",
+    title: "Procedure Templates",
     icon: IconRoute,
     url: "/procedures",
     roles: ["admin"] as UserRole[],
@@ -81,6 +82,12 @@ const allMenuItems = [
     icon: IconSettings,
     url: "/procedures/task-management",
     roles: ["admin", "manager"] as UserRole[],
+  },
+  {
+    title: "Notifications",
+    icon: IconBell,
+    url: "/notifications",
+    roles: ["admin", "employee", "manager"] as UserRole[],
   },
   {
     title: "Reports",

@@ -10,6 +10,8 @@ import {
   IconChevronsRight,
   IconCalendar,
   IconX,
+  IconEdit,
+  IconUsers,
 } from "@tabler/icons-react"
 import {
   flexRender,
@@ -67,10 +69,20 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
   type WorkflowAssignment,
   type WorkflowTemplate,
   type WorkflowMeeting,
   type Employee,
+  type ManagerLevel,
 } from "@/lib/types"
 import {
   workflowTemplates,
@@ -96,12 +108,176 @@ export default function ProcedureAssignPage() {
   const [selectedEmployeeIds, setSelectedEmployeeIds] = React.useState<string[]>([])
   const [startDate, setStartDate] = React.useState<Date>(new Date())
 
+  // Edit assignment state
+  const [editingAssignmentId, setEditingAssignmentId] = React.useState<string | null>(null)
+  const [isEditSheetOpen, setIsEditSheetOpen] = React.useState(false)
+  const [selectedManagers, setSelectedManagers] = React.useState<ManagerLevel[]>([])
+  const [managerSearchValues, setManagerSearchValues] = React.useState<Record<number, string>>({})
+  const [managerSourceType, setManagerSourceType] = React.useState<Record<number, "existing" | "external">>({})
+
   // Initialize data
   React.useEffect(() => {
     initializeWorkflowData(employees)
     setTemplates(workflowTemplates.filter((t) => t.isActive))
     setAssignments(workflowAssignments)
   }, [employees])
+
+  // Get available employees as managers
+  const availableManagers = React.useMemo(() => {
+    return employees
+      .filter((emp) => emp.status === "Active")
+      .map((emp) => ({
+        id: emp.id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        email: emp.email,
+      }))
+  }, [employees])
+
+  // Get manager name by ID
+  const getManagerName = (employeeId: string) => {
+    const manager = availableManagers.find((m) => m.id === employeeId)
+    return manager ? manager.name : ""
+  }
+
+  // Filter managers based on search for each level
+  const getFilteredManagersForLevel = (level: number) => {
+    const searchValue = managerSearchValues[level] || ""
+    const selectedAtOtherLevels = new Set(
+      selectedManagers
+        .filter((m) => m.level !== level && m.employeeId)
+        .map((m) => m.employeeId)
+    )
+    
+    return availableManagers.filter((manager) => {
+      const matchesSearch =
+        !searchValue ||
+        manager.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+        manager.email.toLowerCase().includes(searchValue.toLowerCase())
+      
+      const isSelectedAtOtherLevel = selectedAtOtherLevels.has(manager.id)
+      
+      return matchesSearch && !isSelectedAtOtherLevel
+    })
+  }
+
+  // Handle edit assignment
+  const handleEditAssignment = (assignment: WorkflowAssignment) => {
+    setEditingAssignmentId(assignment.id)
+    // Load existing manager overrides or use employee's managers
+    const employee = getEmployee(assignment.employeeId)
+    const managers = assignment.managerOverrides || employee?.managers || []
+    setSelectedManagers(managers)
+    
+    // Set manager search values and source types
+    const searchValues: Record<number, string> = {}
+    const sourceTypes: Record<number, "existing" | "external"> = {}
+    managers.forEach((manager) => {
+      if (manager.isExternal) {
+        sourceTypes[manager.level] = "external"
+      } else {
+        sourceTypes[manager.level] = "existing"
+        if (manager.employeeId) {
+          searchValues[manager.level] = getManagerName(manager.employeeId)
+        }
+      }
+    })
+    setManagerSearchValues(searchValues)
+    setManagerSourceType(sourceTypes)
+    setIsEditSheetOpen(true)
+  }
+
+  // Manager management functions
+  const addManagerLevel = () => {
+    const nextLevel = selectedManagers.length > 0 
+      ? Math.max(...selectedManagers.map((m) => m.level)) + 1 
+      : 1
+    setSelectedManagers((prev) => [...prev, { level: nextLevel, employeeId: "", isExternal: false }])
+    setManagerSourceType((prev) => ({ ...prev, [nextLevel]: "existing" }))
+  }
+
+  const removeManagerLevel = (level: number) => {
+    setSelectedManagers((prev) => {
+      const updated = prev.filter((m) => m.level !== level)
+      return updated.map((m, index) => ({ ...m, level: index + 1 }))
+    })
+    setManagerSearchValues((prev) => {
+      const updated = { ...prev }
+      delete updated[level]
+      return updated
+    })
+  }
+
+  const selectManagerForLevel = (level: number, employeeId: string) => {
+    const selectedManager = availableManagers.find((m) => m.id === employeeId)
+    if (!selectedManager) return
+
+    setSelectedManagers((prev) => {
+      const existingManager = prev.find((m) => m.level === level)
+      const updated = prev.map((m) =>
+        m.level === level 
+          ? { ...m, employeeId, isExternal: false, externalName: undefined, externalEmail: undefined } 
+          : m
+      )
+      setManagerSearchValues((prevSearch) => ({
+        ...prevSearch,
+        [level]: selectedManager.name,
+      }))
+      setManagerSourceType((prev) => ({ ...prev, [level]: "existing" }))
+      return updated
+    })
+  }
+
+  const updateExternalManager = (level: number, name: string, email: string) => {
+    setSelectedManagers((prev) => {
+      const existingManager = prev.find((m) => m.level === level)
+      const updated = prev.map((m) =>
+        m.level === level 
+          ? { ...m, externalName: name, externalEmail: email, isExternal: true, employeeId: undefined } 
+          : m
+      )
+      return updated
+    })
+  }
+
+  const removeManagerFromLevel = (level: number) => {
+    setSelectedManagers((prev) => {
+      const updated = prev.map((m) =>
+        m.level === level 
+          ? { ...m, employeeId: undefined, externalName: undefined, externalEmail: undefined, isExternal: false } 
+          : m
+      )
+      setManagerSearchValues((prev) => {
+        const updated = { ...prev }
+        updated[level] = ""
+        return updated
+      })
+      return updated
+    })
+  }
+
+  // Save manager changes
+  const handleSaveManagerChanges = () => {
+    if (!editingAssignmentId) return
+
+    setAssignments((prev) =>
+      prev.map((assignment) =>
+        assignment.id === editingAssignmentId
+          ? {
+              ...assignment,
+              managerOverrides: selectedManagers.filter((m) => m.employeeId || m.externalName),
+              updatedAt: new Date().toISOString(),
+            }
+          : assignment
+      )
+    )
+
+    toast.success("Manager assignment updated successfully!")
+    setIsEditSheetOpen(false)
+    setEditingAssignmentId(null)
+    setSelectedManagers([])
+    setManagerSearchValues({})
+    setManagerSourceType({})
+  }
 
   // Get available procedures for selected employee
   const getAvailableProcedures = (employeeId: string): WorkflowTemplate[] => {
@@ -323,6 +499,71 @@ export default function ProcedureAssignPage() {
             <div className="text-sm">
               {completedStages} / {template.stages.length} {template.stages.length === 1 ? "stage" : "stages"} completed
             </div>
+          )
+        },
+      },
+      {
+        id: "managers",
+        header: "Managers",
+        cell: ({ row }) => {
+          const assignment = row.original
+          const employee = getEmployee(assignment.employeeId)
+          const effectiveManagers = assignment.managerOverrides || employee?.managers || []
+          const hasOverrides = assignment.managerOverrides && assignment.managerOverrides.length > 0
+          
+          if (effectiveManagers.length === 0) {
+            return <span className="text-sm text-muted-foreground">No managers</span>
+          }
+          
+          return (
+            <div className="space-y-1">
+              {hasOverrides && (
+                <Badge variant="secondary" className="text-xs mb-1">
+                  Custom
+                </Badge>
+              )}
+              <div className="text-sm">
+                {effectiveManagers.slice(0, 2).map((manager) => {
+                  if (manager.isExternal && manager.externalName) {
+                    return (
+                      <div key={manager.level} className="text-xs">
+                        L{manager.level}: {manager.externalName}
+                      </div>
+                    )
+                  } else if (manager.employeeId) {
+                    const managerEmp = getEmployee(manager.employeeId)
+                    if (managerEmp) {
+                      return (
+                        <div key={manager.level} className="text-xs">
+                          L{manager.level}: {managerEmp.firstName} {managerEmp.lastName}
+                        </div>
+                      )
+                    }
+                  }
+                  return null
+                })}
+                {effectiveManagers.length > 2 && (
+                  <div className="text-xs text-muted-foreground">
+                    +{effectiveManagers.length - 2} more
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        },
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          return (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleEditAssignment(row.original)}
+            >
+              <IconEdit className="size-4" />
+            </Button>
           )
         },
       },
@@ -681,6 +922,355 @@ export default function ProcedureAssignPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Assignment Manager Sheet */}
+      <Sheet open={isEditSheetOpen} onOpenChange={(open) => {
+        setIsEditSheetOpen(open)
+        if (!open) {
+          setEditingAssignmentId(null)
+          setSelectedManagers([])
+          setManagerSearchValues({})
+          setManagerSourceType({})
+        }
+      }}>
+        <SheetContent side="right" className="w-full! max-w-full! md:w-[70vw]! md:max-w-[70vw]! lg:w-[50vw]! lg:max-w-[50vw]! overflow-y-auto px-8 py-4">
+          <SheetHeader>
+            <SheetTitle>Edit Manager Assignment</SheetTitle>
+            <SheetDescription>
+              Change the assigned manager(s) for this procedure. This will override the employee's default manager assignment for this specific procedure only.
+            </SheetDescription>
+          </SheetHeader>
+          {editingAssignmentId && (() => {
+            const assignment = assignments.find((a) => a.id === editingAssignmentId)
+            const employee = assignment ? getEmployee(assignment.employeeId) : null
+            const template = assignment ? getWorkflowTemplate(assignment.workflowTemplateId) : null
+            
+            return (
+              <div className="space-y-6 mt-6">
+                {/* Assignment Info */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Assignment Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Employee</Label>
+                      <p className="font-medium">{employee ? `${employee.firstName} ${employee.lastName}` : "Unknown"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Procedure</Label>
+                      <p className="font-medium">{template?.name || "Unknown"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Status</Label>
+                      <Badge variant={assignment?.status === "completed" ? "default" : assignment?.status === "in_progress" ? "secondary" : "outline"}>
+                        {assignment?.status.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Manager Assignment */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Manager Assignment</CardTitle>
+                    <CardDescription>
+                      Assign managers for this procedure. These will override the employee's default managers for this procedure only.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Show default managers */}
+                    {employee && employee.managers && employee.managers.length > 0 && (
+                      <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                        <Label className="text-sm font-semibold">Default Managers (from Employee Profile)</Label>
+                        <div className="space-y-1">
+                          {employee.managers.map((manager) => {
+                            if (manager.isExternal && manager.externalName) {
+                              return (
+                                <div key={manager.level} className="text-sm text-muted-foreground">
+                                  Level {manager.level}: {manager.externalName} ({manager.externalEmail || "No email"})
+                                </div>
+                              )
+                            } else if (manager.employeeId) {
+                              const managerEmp = getEmployee(manager.employeeId)
+                              if (managerEmp) {
+                                return (
+                                  <div key={manager.level} className="text-sm text-muted-foreground">
+                                    Level {manager.level}: {managerEmp.firstName} {managerEmp.lastName} ({managerEmp.email})
+                                  </div>
+                                )
+                              }
+                            }
+                            return null
+                          })}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          If no managers are assigned below, the default managers will be used.
+                        </p>
+                      </div>
+                    )}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Managers</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addManagerLevel}
+                        >
+                          <IconPlus className="size-4 mr-1" />
+                          Add Level
+                        </Button>
+                      </div>
+                      {selectedManagers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No managers assigned. Click &quot;Add Level&quot; to assign managers.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {selectedManagers.map((managerLevel) => {
+                            const selectedEmployee = availableManagers.find(
+                              (m) => m.id === managerLevel.employeeId
+                            )
+                            const filteredManagers = getFilteredManagersForLevel(managerLevel.level)
+                            
+                            return (
+                              <div
+                                key={managerLevel.level}
+                                className="rounded-md border p-3 space-y-2"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline">
+                                      Level {managerLevel.level}
+                                    </Badge>
+                                    {managerLevel.level === 1 && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Primary
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    onClick={() => removeManagerLevel(managerLevel.level)}
+                                    className="h-6 w-6"
+                                  >
+                                    <IconX className="size-3" />
+                                  </Button>
+                                </div>
+                                <div className="space-y-3">
+                                  <ToggleGroup
+                                    type="single"
+                                    value={managerSourceType[managerLevel.level] || "existing"}
+                                    onValueChange={(value) => {
+                                      if (value) {
+                                        setManagerSourceType((prev) => ({ ...prev, [managerLevel.level]: value as "existing" | "external" }))
+                                        removeManagerFromLevel(managerLevel.level)
+                                      }
+                                    }}
+                                    className="w-full"
+                                  >
+                                    <ToggleGroupItem value="existing" className="flex-1">
+                                      Existing Employee
+                                    </ToggleGroupItem>
+                                    <ToggleGroupItem value="external" className="flex-1">
+                                      External Manager
+                                    </ToggleGroupItem>
+                                  </ToggleGroup>
+
+                                  {(!managerSourceType[managerLevel.level] || managerSourceType[managerLevel.level] === "existing") ? (
+                                    <>
+                                      <Combobox
+                                        inputValue={managerSearchValues[managerLevel.level] || ""}
+                                        onInputValueChange={(value) => {
+                                          setManagerSearchValues((prev) => ({
+                                            ...prev,
+                                            [managerLevel.level]: value || "",
+                                          }))
+                                          if (!value && selectedEmployee) {
+                                            removeManagerFromLevel(managerLevel.level)
+                                          }
+                                        }}
+                                        onValueChange={(value) => {
+                                          if (value) {
+                                            const selectedManager = availableManagers.find(
+                                              (m) => m.name === value
+                                            )
+                                            if (selectedManager && selectedEmployee?.id !== selectedManager.id) {
+                                              selectManagerForLevel(managerLevel.level, selectedManager.id)
+                                            }
+                                          }
+                                        }}
+                                      >
+                                        <ComboboxInput
+                                          placeholder={`Search for level ${managerLevel.level} manager...`}
+                                          showTrigger
+                                          showClear={!!selectedEmployee}
+                                          className="w-full"
+                                        />
+                                        <ComboboxContent>
+                                          <ComboboxList>
+                                            {filteredManagers.map((manager) => (
+                                              <ComboboxItem
+                                                key={manager.id}
+                                                value={manager.name}
+                                              >
+                                                <div className="flex flex-col">
+                                                  <span>{manager.name}</span>
+                                                  <span className="text-xs text-muted-foreground">
+                                                    {manager.email}
+                                                  </span>
+                                                </div>
+                                              </ComboboxItem>
+                                            ))}
+                                          </ComboboxList>
+                                        </ComboboxContent>
+                                      </Combobox>
+                                      {selectedEmployee && (
+                                        <div className="mt-2 rounded-md border bg-muted/30 p-3">
+                                          <div className="flex items-center gap-3">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                              <span className="text-sm font-semibold">
+                                                {selectedEmployee.name
+                                                  .split(" ")
+                                                  .map((n) => n[0])
+                                                  .join("")
+                                                  .toUpperCase()}
+                                              </span>
+                                            </div>
+                                            <div className="flex flex-col flex-1">
+                                              <span className="text-sm font-medium">
+                                                {selectedEmployee.name}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {selectedEmployee.email}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                          <Label htmlFor={`external-name-${managerLevel.level}`}>
+                                            Manager Name
+                                          </Label>
+                                          <Input
+                                            id={`external-name-${managerLevel.level}`}
+                                            placeholder="Enter manager name"
+                                            value={managerLevel.externalName || ""}
+                                            onChange={(e) => {
+                                              updateExternalManager(
+                                                managerLevel.level,
+                                                e.target.value,
+                                                managerLevel.externalEmail || ""
+                                              )
+                                            }}
+                                            className="w-full"
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label htmlFor={`external-email-${managerLevel.level}`}>
+                                            Manager Email
+                                          </Label>
+                                          <Input
+                                            id={`external-email-${managerLevel.level}`}
+                                            type="email"
+                                            placeholder="Enter manager email"
+                                            value={managerLevel.externalEmail || ""}
+                                            onChange={(e) => {
+                                              updateExternalManager(
+                                                managerLevel.level,
+                                                managerLevel.externalName || "",
+                                                e.target.value
+                                              )
+                                            }}
+                                            className="w-full"
+                                          />
+                                        </div>
+                                      </div>
+                                      {(managerLevel.externalName || managerLevel.externalEmail) && (
+                                        <div className="mt-2 rounded-md border bg-muted/30 p-3">
+                                          <div className="flex items-center gap-3">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                              <span className="text-sm font-semibold">
+                                                {managerLevel.externalName
+                                                  ? managerLevel.externalName
+                                                      .split(" ")
+                                                      .map((n) => n[0])
+                                                      .join("")
+                                                      .toUpperCase()
+                                                  : "EM"}
+                                              </span>
+                                            </div>
+                                            <div className="flex flex-col flex-1">
+                                              <span className="text-sm font-medium">
+                                                {managerLevel.externalName || "External Manager"}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {managerLevel.externalEmail || "No email"}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <SheetFooter className="flex items-center justify-between">
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    onClick={() => {
+                      // Clear overrides to use default managers
+                      setAssignments((prev) =>
+                        prev.map((assignment) =>
+                          assignment.id === editingAssignmentId
+                            ? {
+                                ...assignment,
+                                managerOverrides: undefined,
+                                updatedAt: new Date().toISOString(),
+                              }
+                            : assignment
+                        )
+                      )
+                      toast.success("Manager overrides cleared. Using default managers.")
+                      setIsEditSheetOpen(false)
+                      setEditingAssignmentId(null)
+                      setSelectedManagers([])
+                      setManagerSearchValues({})
+                      setManagerSourceType({})
+                    }}
+                  >
+                    Clear Overrides
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={() => setIsEditSheetOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSaveManagerChanges}>
+                      Save Changes
+                    </Button>
+                  </div>
+                </SheetFooter>
+              </div>
+            )
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
