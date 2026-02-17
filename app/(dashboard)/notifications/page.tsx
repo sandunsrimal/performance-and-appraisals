@@ -70,7 +70,7 @@ const categoryConfig: Record<NotificationCategory, { label: string; icon: React.
     variant: "default",
   },
   assignment_created: {
-    label: "Procedure Assigned",
+    label: "Review Cycle Assigned",
     icon: IconPlus,
     variant: "default",
   },

@@ -919,13 +919,13 @@ function DraggableTaskCard({
           )}
         </div>
 
-        {/* Employee and Procedure Info */}
+        {/* Employee and Review Cycle Info */}
         <div className="space-y-1 text-sm">
           <div className="text-muted-foreground">
             <span className="font-medium">For Employee:</span> {task.employeeName}
           </div>
           <div className="text-muted-foreground">
-            <span className="font-medium">Procedure:</span> {task.procedureName}
+            <span className="font-medium">Review Cycle:</span> {task.procedureName}
           </div>
         </div>
 
@@ -1487,7 +1487,7 @@ export default function TasksPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">
-                        Procedure
+                        Review Cycle
                       </p>
                       <p className="text-base">{selectedTask.procedureName}</p>
                     </div>

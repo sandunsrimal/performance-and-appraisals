@@ -1291,20 +1291,20 @@ export default function EmployeesPage() {
                 </CardContent>
               </Card>
 
-              {/* Assigned Procedures */}
+              {/* Assigned Review Cycles */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Assigned Procedures</CardTitle>
+                  <CardTitle>Assigned Review Cycles</CardTitle>
                   <CardDescription>
-                    Select one or more procedures to assign to this employee
+                    Select one or more review cycles to assign to this employee
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Selected Procedures */}
+                  {/* Selected Review Cycles */}
                   {selectedProcedures.length > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-sm font-semibold">Selected Procedures ({selectedProcedures.length})</Label>
+                        <Label className="text-sm font-semibold">Selected Review Cycles ({selectedProcedures.length})</Label>
                       </div>
                       <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-muted/30">
                         {selectedProcedures.map((procedure) => (
@@ -1371,7 +1371,7 @@ export default function EmployeesPage() {
                     <div className="relative">
                       <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                       <Input
-                        placeholder="Search procedures..."
+                        placeholder="Search review cycles..."
                         value={procedureSearchValue}
                         onChange={(e) => setProcedureSearchValue(e.target.value)}
                         className="pl-9"
@@ -1379,11 +1379,11 @@ export default function EmployeesPage() {
                     </div>
                   )}
 
-                  {/* Available Procedures */}
+                  {/* Available Review Cycles */}
                   {unselectedProcedures.length > 0 ? (
                     <div className="space-y-2">
                       <Label className="text-sm font-semibold">
-                        Available Procedures {selectedProcedures.length > 0 && `(${unselectedProcedures.length})`}
+                        Available Review Cycles {selectedProcedures.length > 0 && `(${unselectedProcedures.length})`}
                       </Label>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {unselectedProcedures.map((procedure) => (
@@ -1442,11 +1442,11 @@ export default function EmployeesPage() {
                     </div>
                   ) : availableProcedures.length > 0 && procedureSearchValue ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <p>No procedures found matching &quot;{procedureSearchValue}&quot;</p>
+                      <p>No review cycles found matching &quot;{procedureSearchValue}&quot;</p>
                     </div>
                   ) : availableProcedures.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <p>No active procedures available. Create procedures first.</p>
+                      <p>No active review cycles available. Create review cycles first.</p>
                     </div>
                   ) : null}
                 </CardContent>

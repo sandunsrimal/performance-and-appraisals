@@ -14,7 +14,6 @@ import {
   IconFileText,
   IconReportAnalytics,
   IconChecklist,
-  IconSettings,
   IconBell,
 } from "@tabler/icons-react"
 
@@ -66,7 +65,7 @@ const allMenuItems = [
     roles: ["admin"] as UserRole[],
   },
   {
-    title: "Procedure Templates",
+    title: "Review Cycle Templates",
     icon: IconRoute,
     url: "/procedures",
     roles: ["admin"] as UserRole[],
@@ -76,12 +75,6 @@ const allMenuItems = [
     icon: IconChecklist,
     url: "/procedures/tasks",
     roles: ["admin", "employee", "manager"] as UserRole[],
-  },
-  {
-    title: "Task Management",
-    icon: IconSettings,
-    url: "/procedures/task-management",
-    roles: ["admin", "manager"] as UserRole[],
   },
   {
     title: "Notifications",

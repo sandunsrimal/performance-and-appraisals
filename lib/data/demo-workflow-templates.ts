@@ -6,7 +6,7 @@ export const demoWorkflowTemplates: WorkflowTemplate[] = [
   {
     id: "workflow-simple-meeting",
     name: "Quarterly Review Meeting",
-    description: "Simple quarterly review procedure consisting of a single review meeting between employee and their direct manager. No forms to fill - just a documented meeting discussion.",
+    description: "Simple quarterly review cycle consisting of a single review meeting between employee and their direct manager. No forms to fill - just a documented meeting discussion.",
     applicablePositions: [
       "Engineering Manager",
       "QA Manager", 
@@ -189,7 +189,7 @@ export const demoWorkflowTemplates: WorkflowTemplate[] = [
   {
     id: "workflow-monthly-checkin",
     name: "Monthly Performance Check-in",
-    description: "Lightweight monthly check-in procedure for regular feedback and goal tracking. Quick meeting format with minimal documentation.",
+    description: "Lightweight monthly check-in review cycle for regular feedback and goal tracking. Quick meeting format with minimal documentation.",
     applicablePositions: [
       "Software Engineer",
       "Junior Software Engineer",
@@ -732,7 +732,7 @@ export const demoWorkflowTemplates: WorkflowTemplate[] = [
   {
     id: "workflow-weekly-standup",
     name: "Weekly Stand-up Review",
-    description: "Lightweight weekly stand-up procedure for quick progress updates, blocker identification, and team alignment. Minimal documentation required.",
+    description: "Lightweight weekly stand-up review cycle for quick progress updates, blocker identification, and team alignment. Minimal documentation required.",
     applicablePositions: [
       "Software Engineer",
       "Junior Software Engineer",

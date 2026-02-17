@@ -313,7 +313,7 @@ export default function ProcedureAssignPage() {
   // Handle assign procedure
   const handleAssign = () => {
     if (!selectedProcedureId) {
-      toast.error("Please select a procedure")
+      toast.error("Please select a review cycle")
       return
     }
 
@@ -324,7 +324,7 @@ export default function ProcedureAssignPage() {
 
     const template = getWorkflowTemplate(selectedProcedureId)
     if (!template) {
-      toast.error("Procedure template not found")
+      toast.error("Review cycle template not found")
       return
     }
 
@@ -413,7 +413,7 @@ export default function ProcedureAssignPage() {
       }
     })
 
-    toast.success(`Procedure assigned to ${newAssignments.length} employee(s)!`)
+    toast.success(`Review cycle assigned to ${newAssignments.length} employee(s)!`)
     setIsSheetOpen(false)
     setSelectedProcedureId("")
     setSelectedEmployeeIds([])
@@ -442,7 +442,7 @@ export default function ProcedureAssignPage() {
       },
       {
         accessorKey: "workflowTemplateId",
-        header: "Procedure",
+        header: "Review Cycle",
         cell: ({ row }) => {
           const template = getWorkflowTemplate(row.original.workflowTemplateId)
           return (
@@ -598,9 +598,9 @@ export default function ProcedureAssignPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 lg:px-6">
         <div>
-          <h2 className="text-2xl font-semibold">Assign Procedures</h2>
+          <h2 className="text-2xl font-semibold">Assign Review Cycles</h2>
           <p className="text-muted-foreground mt-2">
-            Assign appraisal procedures to employees based on their roles and positions.
+            Assign appraisal review cycles to employees based on their roles and positions.
           </p>
         </div>
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
@@ -618,23 +618,23 @@ export default function ProcedureAssignPage() {
           </SheetTrigger>
           <SheetContent side="right" className="w-full! max-w-full! md:w-[70vw]! md:max-w-[70vw]! lg:w-[50vw]! lg:max-w-[50vw]! overflow-y-auto px-8 py-4">
             <SheetHeader>
-              <SheetTitle>Assign Procedure to Employees</SheetTitle>
+              <SheetTitle>Assign Review Cycle to Employees</SheetTitle>
               <SheetDescription>
-                Select a procedure and assign it to one or more employees.
+                Select a review cycle and assign it to one or more employees.
               </SheetDescription>
             </SheetHeader>
             <div className="space-y-6 mt-6">
-              {/* Procedure Selection */}
+              {/* Review Cycle Selection */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Select Procedure</CardTitle>
+                  <CardTitle>Select Review Cycle</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Procedure Template *</Label>
+                    <Label>Review Cycle Template *</Label>
                     <Select value={selectedProcedureId} onValueChange={setSelectedProcedureId}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a procedure" />
+                        <SelectValue placeholder="Select a review cycle" />
                       </SelectTrigger>
                       <SelectContent>
                         {templates.map((template) => (
@@ -937,7 +937,7 @@ export default function ProcedureAssignPage() {
           <SheetHeader>
             <SheetTitle>Edit Manager Assignment</SheetTitle>
             <SheetDescription>
-              Change the assigned manager(s) for this procedure. This will override the employee's default manager assignment for this specific procedure only.
+              Change the assigned manager(s) for this review cycle. This will override the employee's default manager assignment for this specific review cycle only.
             </SheetDescription>
           </SheetHeader>
           {editingAssignmentId && (() => {
@@ -958,7 +958,7 @@ export default function ProcedureAssignPage() {
                       <p className="font-medium">{employee ? `${employee.firstName} ${employee.lastName}` : "Unknown"}</p>
                     </div>
                     <div>
-                      <Label className="text-sm text-muted-foreground">Procedure</Label>
+                      <Label className="text-sm text-muted-foreground">Review Cycle</Label>
                       <p className="font-medium">{template?.name || "Unknown"}</p>
                     </div>
                     <div>
@@ -975,7 +975,7 @@ export default function ProcedureAssignPage() {
                   <CardHeader>
                     <CardTitle>Manager Assignment</CardTitle>
                     <CardDescription>
-                      Assign managers for this procedure. These will override the employee's default managers for this procedure only.
+                      Assign managers for this review cycle. These will override the employee's default managers for this review cycle only.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">

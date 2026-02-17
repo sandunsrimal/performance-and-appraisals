@@ -85,7 +85,7 @@ export const demoNotifications: Notification[] = [
     id: "demo-notif-6",
     userId: "eng-employee-1",
     category: "assignment_created",
-    title: "New Procedure Assigned",
+    title: "New Review Cycle Assigned",
     message: "A new Complete Employee Evaluation has been assigned to you",
     read: false,
     createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
@@ -178,7 +178,7 @@ export const demoNotifications: Notification[] = [
     userId: "admin-1",
     category: "system",
     title: "System Notification",
-    message: "New procedure template 'Quarterly Review' has been created",
+    message: "New review cycle template 'Quarterly Review' has been created",
     read: true,
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
     link: "/procedures",

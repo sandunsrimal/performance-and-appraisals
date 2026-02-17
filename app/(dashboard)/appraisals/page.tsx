@@ -648,7 +648,7 @@ function AppraisalsPageContent() {
       },
       {
         accessorKey: "reviewPeriod",
-        header: "Procedure & Period",
+        header: "Review Cycle & Period",
         cell: ({ row }) => {
           const assignment = assignments.find((a) => a.id === row.original.workflowAssignmentId)
           const template = assignment ? getWorkflowTemplate(assignment.workflowTemplateId) : null
@@ -892,7 +892,7 @@ function AppraisalsPageContent() {
           <div>
             <h2 className="text-2xl font-semibold">Appraisals</h2>
             <p className="text-muted-foreground mt-2">
-              View employee performance appraisals linked to procedures. Appraisals are automatically created from procedure assignments.
+              View employee performance appraisals linked to review cycles. Appraisals are automatically created from review cycle assignments.
             </p>
           </div>
         </div>
@@ -1279,7 +1279,7 @@ function AppraisalsPageContent() {
                           
                           {completionStatus.employeeForms.total === 0 && completionStatus.managerForms.total === 0 && (
                             <div className="text-center py-4 text-muted-foreground">
-                              <p className="text-sm">No evaluation forms are required for this procedure.</p>
+                              <p className="text-sm">No evaluation forms are required for this review cycle.</p>
                             </div>
                           )}
                         </div>
@@ -1288,17 +1288,17 @@ function AppraisalsPageContent() {
                   )
                 })()}
 
-                {/* Procedure */}
+                {/* Review Cycle */}
                 {template && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>Procedure</CardTitle>
+                      <CardTitle>Review Cycle</CardTitle>
                       <CardDescription>{template.description}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Procedure Name</p>
+                          <p className="text-sm font-medium text-muted-foreground">Review Cycle Name</p>
                           <p className="text-base font-semibold">{template.name}</p>
                         </div>
                         <div>
@@ -1822,7 +1822,7 @@ function AppraisalsPageContent() {
           <SheetHeader>
             <SheetTitle>Edit Manager Assignment</SheetTitle>
             <SheetDescription>
-              Change the assigned manager(s) for this procedure. This will override the employee&apos;s default manager assignment for this specific procedure only.
+              Change the assigned manager(s) for this review cycle. This will override the employee&apos;s default manager assignment for this specific review cycle only.
             </SheetDescription>
           </SheetHeader>
           {editingAssignmentId && (() => {
@@ -1843,7 +1843,7 @@ function AppraisalsPageContent() {
                       <p className="font-medium">{employee ? `${employee.firstName} ${employee.lastName}` : "Unknown"}</p>
                     </div>
                     <div>
-                      <Label className="text-sm text-muted-foreground">Procedure</Label>
+                      <Label className="text-sm text-muted-foreground">Review Cycle</Label>
                       <p className="font-medium">{template?.name || "Unknown"}</p>
                     </div>
                     <div>
@@ -1860,7 +1860,7 @@ function AppraisalsPageContent() {
                   <CardHeader>
                     <CardTitle>Manager Assignment</CardTitle>
                     <CardDescription>
-                      Assign managers for this procedure. These will override the employee&apos;s default managers for this procedure only.
+                      Assign managers for this review cycle. These will override the employee&apos;s default managers for this review cycle only.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">

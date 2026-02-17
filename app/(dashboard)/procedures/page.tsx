@@ -312,7 +312,7 @@ export default function ProceduresPage() {
       updatedAt: new Date().toISOString(),
     }
     setTemplates((prev) => [...prev, newTemplate])
-      toast.success("Procedure template duplicated successfully!")
+      toast.success("Review cycle template duplicated successfully!")
   }, [])
 
   // Handle delete
@@ -324,7 +324,7 @@ export default function ProceduresPage() {
   const confirmDelete = React.useCallback(() => {
     if (templateToDelete) {
       setTemplates((prev) => prev.filter((t) => t.id !== templateToDelete))
-      toast.success("Procedure template deleted successfully!")
+      toast.success("Review cycle template deleted successfully!")
       setTemplateToDelete(null)
     }
     setDeleteDialogOpen(false)
@@ -434,7 +434,7 @@ export default function ProceduresPage() {
     e.preventDefault()
 
     if (!formData.name) {
-      toast.error("Please enter a procedure name")
+      toast.error("Please enter a review cycle name")
       return
     }
 
@@ -463,10 +463,10 @@ export default function ProceduresPage() {
 
     if (editingTemplateId) {
       setTemplates((prev) => prev.map((t) => (t.id === editingTemplateId ? template : t)))
-      toast.success("Procedure template updated successfully!")
+      toast.success("Review cycle template updated successfully!")
     } else {
       setTemplates((prev) => [...prev, template])
-      toast.success("Procedure template created successfully!")
+      toast.success("Review cycle template created successfully!")
     }
 
     setIsSheetOpen(false)
@@ -505,7 +505,7 @@ export default function ProceduresPage() {
     () => [
       {
         accessorKey: "name",
-        header: "Procedure Name",
+        header: "Review Cycle Name",
         size: 200,
         maxSize: 300,
         cell: ({ row }) => (
@@ -625,9 +625,9 @@ export default function ProceduresPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 lg:px-6">
         <div>
-          <h2 className="text-2xl font-semibold">Procedure Templates</h2>
+          <h2 className="text-2xl font-semibold">Review Cycle Templates</h2>
           <p className="text-muted-foreground mt-2">
-            Create and manage customizable procedure templates for different roles and positions.
+            Create and manage customizable review cycle templates for different roles and positions.
           </p>
         </div>
         <Sheet open={isSheetOpen} onOpenChange={(open) => {
@@ -643,16 +643,16 @@ export default function ProceduresPage() {
               resetForm()
             }}>
               <IconPlus className="size-4 mr-2" />
-              Create Procedure Template
+              Create Review Cycle Template
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-full! max-w-full! md:w-[70vw]! md:max-w-[70vw]! lg:w-[50vw]! lg:max-w-[50vw]! overflow-y-auto px-8 py-4">
             <SheetHeader>
               <SheetTitle>
-                {editingTemplateId ? "Edit Procedure Template" : "Create New Procedure Template"}
+                {editingTemplateId ? "Edit Review Cycle Template" : "Create New Review Cycle Template"}
               </SheetTitle>
               <SheetDescription>
-                Configure a customizable procedure template with steps, meetings, and notifications.
+                Configure a customizable review cycle template with steps, meetings, and notifications.
               </SheetDescription>
             </SheetHeader>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -664,13 +664,13 @@ export default function ProceduresPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">
-                      Procedure Name <span className="text-destructive">*</span>
+                      Review Cycle Name <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g., Software Engineer Appraisal Procedure"
+                      placeholder="e.g., Software Engineer Appraisal Review Cycle"
                       required
                       className="w-full"
                     />
@@ -681,7 +681,7 @@ export default function ProceduresPage() {
                       id="description"
                       value={formData.description}
                       onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                      placeholder="Describe this procedure..."
+                      placeholder="Describe this review cycle..."
                       rows={3}
                       className="w-full"
                     />
@@ -916,7 +916,7 @@ export default function ProceduresPage() {
                 <CardHeader>
                   <CardTitle>Manager Levels</CardTitle>
                   <CardDescription>
-                    Configure available manager levels for this procedure. These will be available as attendee options in steps.
+                    Configure available manager levels for this review cycle. These will be available as attendee options in steps.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -974,7 +974,7 @@ export default function ProceduresPage() {
                 <CardHeader>
                   <CardTitle>Managers</CardTitle>
                   <CardDescription>
-                    Add and manage a list of managers with their full names and email addresses for this procedure.
+                    Add and manage a list of managers with their full names and email addresses for this review cycle.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1093,7 +1093,7 @@ export default function ProceduresPage() {
                 <CardHeader>
                   <CardTitle>Review Steps</CardTitle>
                     <CardDescription>
-                    Define the review steps in this procedure (reviews, meetings, approvals, etc.)
+                    Define the review steps in this review cycle (reviews, meetings, approvals, etc.)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1708,7 +1708,7 @@ export default function ProceduresPage() {
                       }
                     />
                     <Label htmlFor="is-active" className="cursor-pointer">
-                      Active (procedure can be assigned to employees)
+                      Active (review cycle can be assigned to employees)
                     </Label>
                   </div>
                 </CardContent>
@@ -1719,7 +1719,7 @@ export default function ProceduresPage() {
                   Cancel
                 </Button>
                 <Button type="submit">
-                  {editingTemplateId ? "Update Procedure Template" : "Create Procedure Template"}
+                  {editingTemplateId ? "Update Review Cycle Template" : "Create Review Cycle Template"}
                 </Button>
               </SheetFooter>
             </form>
@@ -1733,7 +1733,7 @@ export default function ProceduresPage() {
           <div className="relative flex-1 max-w-sm">
             <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              placeholder="Search procedure templates..."
+              placeholder="Search review cycle templates..."
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
               className="pl-9"
@@ -1754,7 +1754,7 @@ export default function ProceduresPage() {
         </div>
       </div>
 
-      {/* Procedure Templates Table */}
+      {/* Review Cycle Templates Table */}
       <div className="px-4 lg:px-6">
         <div className="overflow-hidden rounded-lg border">
           <Table>
@@ -1802,7 +1802,7 @@ export default function ProceduresPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-24 text-center">
-                    No procedure templates found. Create your first procedure template to get started.
+                    No review cycle templates found. Create your first review cycle template to get started.
                   </TableCell>
                 </TableRow>
               )}
@@ -1818,7 +1818,7 @@ export default function ProceduresPage() {
               (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
               filteredTemplates.length
             )}{" "}
-            of {filteredTemplates.length} procedure templates
+            of {filteredTemplates.length} review cycle templates
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -1872,13 +1872,13 @@ export default function ProceduresPage() {
               {selectedTemplateForView?.name || "Review Steps"}
             </SheetTitle>
             <SheetDescription>
-              {selectedTemplateForView?.description || "View all review steps in this procedure"}
+              {selectedTemplateForView?.description || "View all review steps in this review cycle"}
             </SheetDescription>
           </SheetHeader>
 
           {selectedTemplateForView && (
             <div className="space-y-4">
-              {/* Procedure Info */}
+              {/* Review Cycle Info */}
               <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-1">Appraisal Frequency</p>
@@ -2142,7 +2142,7 @@ export default function ProceduresPage() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  No steps defined for this procedure.
+                  No steps defined for this review cycle.
                 </div>
               )}
             </div>
@@ -2156,7 +2156,7 @@ export default function ProceduresPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the procedure
+              This action cannot be undone. This will permanently delete the review cycle
               and remove all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -633,7 +633,7 @@ export default function TaskManagementPage() {
           <div className="relative flex-1 max-w-sm">
             <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              placeholder="Search tasks, employees, procedures..."
+              placeholder="Search tasks, employees, review cycles..."
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
               className="pl-9"
@@ -861,7 +861,7 @@ export default function TaskManagementPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">
-                        Procedure
+                        Review Cycle
                       </p>
                       <p className="text-base">{selectedTask.procedureName}</p>
                     </div>

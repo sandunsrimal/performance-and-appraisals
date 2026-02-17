@@ -288,7 +288,7 @@ export default function MeetingJoinPage({
               <div className="flex items-center gap-2">
                 <IconFileText className="size-4 text-muted-foreground" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Procedure</p>
+                  <p className="text-xs text-muted-foreground">Review Cycle</p>
                   <p className="text-sm font-medium">{template.name}</p>
                 </div>
               </div>
